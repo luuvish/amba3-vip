@@ -1,0 +1,3 @@
+INCLUDE $CDS_INST_DIR/tools/inca/files/cds.lib
+DEFINE worklib ./build/sim/worklib
+DEFINE ambalib ./build/sim/ambalib
