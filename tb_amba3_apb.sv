@@ -24,7 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
   
     File         : tb_amba3_apb.sv
-    Author(s)    : luuvish (github.com/luuvish)
+    Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : testbench for amba 3 apb
   

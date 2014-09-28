@@ -25,7 +25,7 @@
 #===============================================================================
 #
 #   File         : incisive.mk
-#   Author(s)    : luuvish (github.com/luuvish)
+#   Author(s)    : luuvish (github.com/luuvish/amba3-vip)
 #   Modifier     : luuvish (luuvish@gmail.com)
 #   Descriptions : Makefile for Cadence Incisive Unified Simulator
 #

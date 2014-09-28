@@ -28,7 +28,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
   
     File         : test.py
-    Author(s)    : luuvish (github.com/luuvish)
+    Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : test python script 
   
@@ -92,7 +92,7 @@ def main():
   arguments = ['+randoms=1000', '+verbose', '+waveform']
 
   test(test_vectors['worklib.tb_amba3_apb:module'], arguments)
-  #test(test_vectors['worklib.tb_amba3_axi:module'], arguments)
+  test(test_vectors['worklib.tb_amba3_axi:module'], arguments)
 
 
 def test(sets, args=[]):
