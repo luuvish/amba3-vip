@@ -33,55 +33,67 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 class amba3_apb_slave_t
 #(
   parameter integer ADDR_SIZE = 32,
-                    DATA_SIZE = 32
+                    DATA_SIZE = 32,
+                    MAX_DELAY = 10
 );
-
-  localparam integer DELAY = 1;
 
   typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).slave apb_t;
   apb_t apb;
 
-  function new (input apb_t apb);
+  logic [DATA_SIZE - 1:0] mems [logic [ADDR_SIZE - 1:2]];
+
+  function new (apb_t apb);
     this.apb = apb;
   endfunction
+
+  virtual task start ();
+    apb.slave_start();
+    ready();
+  endtask
 
   virtual task reset ();
     apb.slave_reset();
   endtask
 
   virtual task ready ();
-    logic [ADDR_SIZE - 1:0] addr;
-    logic [DATA_SIZE - 1:0] data;
+    forever begin
+      wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
 
-    apb.slave_cb.pready <= 1'b0;
-    wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
+      begin
+        int t = $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+        repeat (t) @(apb.slave_cb);
+      end
 
-    repeat (DELAY) @(apb.slave_cb);
-    apb.slave_cb.pready <= 1'b1;
-    if (apb.slave_cb.pwrite == 1'b1) begin
-      addr = apb.slave_cb.paddr;
-      data = apb.slave_cb.pwdata;
-      write(addr, data);
+      if (apb.slave_cb.pwrite == 1'b1) begin
+        write(apb.slave_cb.paddr, apb.slave_cb.pwdata);
+        apb.slave_cb.pready <= 1'b1;
+      end
+      if (apb.slave_cb.pwrite == 1'b0) begin
+        logic [DATA_SIZE - 1:0] data;
+        read(apb.slave_cb.paddr, data);
+        apb.slave_cb.pready <= 1'b1;
+        apb.slave_cb.prdata <= data;
+      end
+      @(apb.slave_cb);
+      wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
+
+      apb.slave_cb.pready <= 1'b0;
+      apb.slave_cb.prdata <= 'b0;
     end
-    if (apb.slave_cb.pwrite == 1'b0) begin
-      read(addr, data);
-      apb.slave_cb.prdata <= data;
-    end
-    wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
   endtask
 
   virtual task write (
     input  logic [ADDR_SIZE - 1:0] addr,
     input  logic [DATA_SIZE - 1:0] data
   );
-    apb.slave_write(addr, data);
+    mems[addr[ADDR_SIZE - 1:2]] = data;
   endtask
 
   virtual task read (
     input  logic [ADDR_SIZE - 1:0] addr,
     output logic [DATA_SIZE - 1:0] data
   );
-    apb.slave_read(addr, data);
+    data = mems[addr[ADDR_SIZE - 1:2]];
   endtask
 
 endclass

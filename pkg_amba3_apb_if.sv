@@ -46,31 +46,50 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
   logic [DATA_SIZE - 1:0] prdata;
 
   clocking master_cb @(posedge pclk);
-    output paddr, psel, penable, pwrite, pwdata;
-    input  pready, prdata;
+    output #1 paddr, psel, penable, pwrite, pwdata;
+    input  #1 pready, prdata;
   endclocking
 
   clocking slave_cb @(posedge pclk);
-    input  paddr, psel, penable, pwrite, pwdata;
-    output pready, prdata;
+    input  #1 paddr, psel, penable, pwrite, pwdata;
+    output #1 pready, prdata;
   endclocking
 
   modport master (
-    clocking master_cb,
-    import master_reset, master_write, master_read
+    clocking master_cb, input preset_n,
+    import master_start, master_reset, master_delay, master_write, master_read
   );
   modport slave (
-    clocking slave_cb,
-    import slave_reset, slave_write, slave_read
+    clocking slave_cb, input preset_n,
+    import slave_start, slave_reset, slave_write, slave_read
   );
 
+  task master_start ();
+    fork
+      forever begin
+        wait (preset_n == 1'b0);
+        master_reset();
+        wait (preset_n == 1'b1);
+      end
+    join_none
+  endtask
+
   task master_reset ();
-    @(master_cb);
     master_cb.paddr   <= 'b0;
     master_cb.psel    <= 1'b0;
     master_cb.penable <= 1'b0;
     master_cb.pwrite  <= 1'b0;
     master_cb.pwdata  <= 'b0;
+    @(master_cb);
+  endtask
+
+  task master_delay (int t);
+    master_cb.paddr   <= 'b0;
+    master_cb.pwrite  <= 1'b0;
+    master_cb.psel    <= 1'b0;
+    master_cb.penable <= 1'b0;
+    master_cb.pwdata  <= 'b0;
+    repeat (t) @(master_cb);
   endtask
 
   task master_write (
@@ -84,10 +103,10 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_cb.penable <= 1'b0;
     master_cb.pwdata  <= data;
     @(master_cb);
+
     master_cb.penable <= 1'b1;
     wait (master_cb.pready == 1'b1);
 
-    @(master_cb);
     master_cb.paddr   <= 'b0;
     master_cb.pwrite  <= 1'b0;
     master_cb.psel    <= 1'b0;
@@ -106,11 +125,11 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_cb.penable <= 1'b0;
     master_cb.pwdata  <= 'b0;
     @(master_cb);
+
     master_cb.penable <= 1'b1;
     wait (master_cb.pready == 1'b1);
-    data = master_cb.prdata;
 
-    @(master_cb);
+    data = master_cb.prdata;
     master_cb.paddr   <= 'b0;
     master_cb.pwrite  <= 1'b0;
     master_cb.psel    <= 1'b0;
@@ -118,10 +137,20 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_cb.pwdata  <= 'b0;
   endtask
 
+  task slave_start ();
+    fork
+      forever begin
+        wait (preset_n == 1'b0);
+        slave_reset();
+        wait (preset_n == 1'b1);
+      end
+    join_none
+  endtask
+
   task slave_reset ();
-    @(slave_cb);
     slave_cb.pready <= 1'b0;
     slave_cb.prdata <= 'b0;
+    @(slave_cb);
   endtask
 
   task slave_write (

@@ -67,14 +67,17 @@ module tb_amba3_axi;
       $shm_probe("ars");
     end
 
-    run (axi);
+    example (axi);
     repeat (1000) @(posedge aclk);
     $finish;
   end
 
-  task run (axi_if axi);
+  task example (axi_if axi);
     static axi_master_t master = new (axi);
     static axi_slave_t slave = new (axi);
+  endtask
+
+  task unit_test ();
   endtask
 
 endmodule
