@@ -68,10 +68,8 @@ module tb_amba3_apb;
       $shm_probe("ars");
     end
 
-    fork
-      master.start();
-      slave.start();
-    join_none
+    master.start();
+    slave.start();
     repeat (100) @(posedge pclk);
 
     if (count > 0)
@@ -91,22 +89,22 @@ module tb_amba3_apb;
     end
 
     master.write(32'h00000000, 32'h00000004);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.write(32'h00000004, 32'h00000008);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.write(32'h00000010, 32'h00000014);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.write(32'h00000018, 32'h0000001C);
-    master.delay(random_delay());
+    master.ticks(random_delay());
 
     master.read(32'h00000000, data); assert(data == 32'h00000004);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.read(32'h00000004, data); assert(data == 32'h00000008);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.read(32'h00000010, data); assert(data == 32'h00000014);
-    master.delay(random_delay());
+    master.ticks(random_delay());
     master.read(32'h00000018, data); assert(data == 32'h0000001C);
-    master.delay(random_delay());
+    master.ticks(random_delay());
 
     master.write(32'h00000040, 32'h12345678);
     master.write(32'h00000080, 32'h40506070);
@@ -130,19 +128,13 @@ module tb_amba3_apb;
       $display("apb unittest start");
     end
 
-    fork
-      master.start();
-      slave.start();
-    join_none
-    repeat (100) @(posedge pclk);
-
     repeat (count) begin
       midx = $urandom_range(0, 32'h3FFFFFFF);
       addr = {midx, 2'b0};
       data = $urandom_range(0, 32'hFFFFFFFF);
 
       master.write(addr, data);
-      //master.delay(random_delay());
+      master.ticks(random_delay());
       mems[midx] = data;
     end
 
@@ -150,7 +142,7 @@ module tb_amba3_apb;
       addr = {midx, 2'b0};
 
       master.read(addr, data);
-      //master.delay(random_delay());
+      master.ticks(random_delay());
       assert(mems[midx] == data);
     end
 

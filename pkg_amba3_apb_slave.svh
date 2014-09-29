@@ -47,8 +47,14 @@ class amba3_apb_slave_t
   endfunction
 
   virtual task start ();
-    apb.slave_start();
-    ready();
+    fork
+      apb.slave_start();
+      ready();
+    join_none
+  endtask
+
+  virtual task ticks (int t);
+    apb.slave_ticks(t);
   endtask
 
   virtual task reset ();
@@ -59,10 +65,7 @@ class amba3_apb_slave_t
     forever begin
       wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
 
-      begin
-        int t = $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
-        repeat (t) @(apb.slave_cb);
-      end
+      ticks(random_delay());
 
       if (apb.slave_cb.pwrite == 1'b1) begin
         write(apb.slave_cb.paddr, apb.slave_cb.pwdata);
@@ -75,6 +78,7 @@ class amba3_apb_slave_t
         apb.slave_cb.prdata <= data;
       end
       @(apb.slave_cb);
+
       wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
 
       apb.slave_cb.pready <= 1'b0;
@@ -95,5 +99,9 @@ class amba3_apb_slave_t
   );
     data = mems[addr[ADDR_SIZE - 1:2]];
   endtask
+
+  virtual function int random_delay ();
+    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+  endfunction
 
 endclass

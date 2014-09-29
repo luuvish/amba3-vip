@@ -89,7 +89,7 @@ def main():
     f.write('DEFINE ambalib %s\n' % os.path.join(LIB_DIR, 'ambalib'))
 
   #arguments = ['+verbose', '+waveform']
-  arguments = ['+unittest=100', '+verbose', '+waveform']
+  arguments = ['+unittest=1000', '+verbose']
 
   test(test_vectors['worklib.tb_amba3_apb:module'], arguments)
   #test(test_vectors['worklib.tb_amba3_axi:module'], arguments)

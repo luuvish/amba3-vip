@@ -48,12 +48,12 @@ class amba3_apb_master_t
     apb.master_start();
   endtask
 
-  virtual task reset ();
-    apb.master_reset();
+  virtual task ticks (int t);
+    apb.master_ticks(t);
   endtask
 
-  virtual task delay (int t);
-    apb.master_delay(t);
+  virtual task reset ();
+    apb.master_reset();
   endtask
 
   virtual task write (
@@ -61,17 +61,18 @@ class amba3_apb_master_t
     input  logic [DATA_SIZE - 1:0] data
   );
 
-    int t = $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
-
     apb.master_cb.paddr   <= addr;
     apb.master_cb.pwrite  <= 1'b1;
     apb.master_cb.psel    <= 1'b1;
     apb.master_cb.penable <= 1'b0;
     apb.master_cb.pwdata  <= data;
-    repeat (t + 1) @(apb.master_cb);
+    @(apb.master_cb);
+
+    ticks(random_delay());
 
     apb.master_cb.penable <= 1'b1;
-    if (t > 0) @(apb.master_cb);
+    @(apb.master_cb);
+
     wait (apb.master_cb.pready == 1'b1);
 
     apb.master_cb.paddr   <= 'b0;
@@ -86,17 +87,18 @@ class amba3_apb_master_t
     output logic [DATA_SIZE - 1:0] data
   );
 
-    int t = $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
-
     apb.master_cb.paddr   <= addr;
     apb.master_cb.pwrite  <= 1'b0;
     apb.master_cb.psel    <= 1'b1;
     apb.master_cb.penable <= 1'b0;
     apb.master_cb.pwdata  <= 'b0;
-    repeat (t + 1) @(apb.master_cb);
+    @(apb.master_cb);
+
+    ticks(random_delay());
 
     apb.master_cb.penable <= 1'b1;
-    if (t > 0) @(apb.master_cb);
+    @(apb.master_cb);
+
     wait (apb.master_cb.pready == 1'b1);
 
     data = apb.master_cb.prdata;
@@ -106,5 +108,9 @@ class amba3_apb_master_t
     apb.master_cb.penable <= 1'b0;
     apb.master_cb.pwdata  <= 'b0;
   endtask
+
+  virtual function int random_delay ();
+    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+  endfunction
 
 endclass

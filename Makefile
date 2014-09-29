@@ -39,6 +39,7 @@ all: incisive
 
 clean:
 	make -C . -f incisive.mk clean
+	-rm -rf ./build ./test
 
 verify:
 
