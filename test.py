@@ -88,11 +88,12 @@ def main():
     f.write('DEFINE worklib %s\n' % os.path.join(LIB_DIR, 'worklib'))
     f.write('DEFINE ambalib %s\n' % os.path.join(LIB_DIR, 'ambalib'))
 
-  #arguments = ['+verbose', '+waveform']
-  arguments = ['+unittest=1000', '+verbose']
+  arguments = ['+verbose', '+waveform']
+  #arguments = ['+unittest=50', '+verbose', '+waveform']
+  #arguments = ['+unittest=1000', '+verbose']
 
-  test(test_vectors['worklib.tb_amba3_apb:module'], arguments)
-  #test(test_vectors['worklib.tb_amba3_axi:module'], arguments)
+  #test(test_vectors['worklib.tb_amba3_apb:module'], arguments)
+  test(test_vectors['worklib.tb_amba3_axi:module'], arguments)
 
 
 def test(sets, args=[]):

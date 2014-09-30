@@ -26,7 +26,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     File         : pkg_amba3_apb_master.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : package for amba 3 apb master
+    Descriptions : package for amba 3 apb 1.0 master
   
 ==============================================================================*/
 
@@ -38,9 +38,12 @@ class amba3_apb_master_t
 );
 
   typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).master apb_t;
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
+
   apb_t apb;
 
-  function new (apb_t apb);
+  function new (input apb_t apb);
     this.apb = apb;
   endfunction
 
@@ -48,65 +51,22 @@ class amba3_apb_master_t
     apb.master_start();
   endtask
 
-  virtual task ticks (int t);
-    apb.master_ticks(t);
+  virtual task ticks (input int tick);
+    apb.master_ticks(tick);
   endtask
 
   virtual task reset ();
     apb.master_reset();
   endtask
 
-  virtual task write (
-    input  logic [ADDR_SIZE - 1:0] addr,
-    input  logic [DATA_SIZE - 1:0] data
-  );
-
-    apb.master_cb.paddr   <= addr;
-    apb.master_cb.pwrite  <= 1'b1;
-    apb.master_cb.psel    <= 1'b1;
-    apb.master_cb.penable <= 1'b0;
-    apb.master_cb.pwdata  <= data;
-    @(apb.master_cb);
-
+  virtual task write (input addr_t addr, input data_t data);
     ticks(random_delay());
-
-    apb.master_cb.penable <= 1'b1;
-    @(apb.master_cb);
-
-    wait (apb.master_cb.pready == 1'b1);
-
-    apb.master_cb.paddr   <= 'b0;
-    apb.master_cb.pwrite  <= 1'b0;
-    apb.master_cb.psel    <= 1'b0;
-    apb.master_cb.penable <= 1'b0;
-    apb.master_cb.pwdata  <= 'b0;
+    apb.master_write(addr, data);
   endtask
 
-  virtual task read (
-    input  logic [ADDR_SIZE - 1:0] addr,
-    output logic [DATA_SIZE - 1:0] data
-  );
-
-    apb.master_cb.paddr   <= addr;
-    apb.master_cb.pwrite  <= 1'b0;
-    apb.master_cb.psel    <= 1'b1;
-    apb.master_cb.penable <= 1'b0;
-    apb.master_cb.pwdata  <= 'b0;
-    @(apb.master_cb);
-
+  virtual task read (input addr_t addr, output data_t data);
     ticks(random_delay());
-
-    apb.master_cb.penable <= 1'b1;
-    @(apb.master_cb);
-
-    wait (apb.master_cb.pready == 1'b1);
-
-    data = apb.master_cb.prdata;
-    apb.master_cb.paddr   <= 'b0;
-    apb.master_cb.pwrite  <= 1'b0;
-    apb.master_cb.psel    <= 1'b0;
-    apb.master_cb.penable <= 1'b0;
-    apb.master_cb.pwdata  <= 'b0;
+    apb.master_read(addr, data);
   endtask
 
   virtual function int random_delay ();

@@ -36,9 +36,13 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   parameter integer AXID_SIZE = 4,
                     ADDR_SIZE = 32,
-                    DATA_SIZE = 128;
+                    DATA_SIZE = 32;
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
+
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [STRB_SIZE - 1:0] strb_t;
 
   // write address channel signals
   logic [AXID_SIZE - 1:0] awid;
@@ -86,82 +90,111 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic                   rvalid;
   logic                   rready;
 
-  clocking master_wr_cb @(posedge aclk);
+  clocking master_cb @(posedge aclk);
     output awid, awaddr, awlen, awsize, awburst, awlock, awcache, awprot;
     output awvalid; input awready;
     output wid, wdata, wstrb, wlast, wvalid; input wready;
     input  bid, bresp, bvalid; output bready;
-  endclocking
-
-  clocking slave_wr_cb @(posedge aclk);
-    input  awid, awaddr, awlen, awsize, awburst, awlock, awcache, awprot;
-    input  awvalid; output awready;
-    input  wid, wdata, wstrb, wlast, wvalid; output wready;
-    output bid, bresp, bvalid; input bready;
-  endclocking
-
-  clocking master_rd_cb @(posedge aclk);
     output arid, araddr, arlen, arsize, arburst, arlock, arcache, arprot;
     output arvalid; input arready;
     input  rid, rdata, rresp, rlast, rvalid; output rready;
   endclocking
 
-  clocking slave_rd_cb @(posedge aclk);
+  clocking slave_cb @(posedge aclk);
+    input  awid, awaddr, awlen, awsize, awburst, awlock, awcache, awprot;
+    input  awvalid; output awready;
+    input  wid, wdata, wstrb, wlast, wvalid; output wready;
+    output bid, bresp, bvalid; input bready;
     input  arid, araddr, arlen, arsize, arburst, arlock, arcache, arprot;
     input  arvalid; output arready;
     output rid, rdata, rresp, rlast, rvalid; input rready;
   endclocking
 
-  modport master (clocking master_wr_cb, master_rd_cb, import master_reset);
-  modport slave  (clocking slave_wr_cb, slave_rd_cb, import slave_reset);
+  modport master (
+    clocking master_cb, input areset_n,
+    import master_start, master_ticks, master_reset
+  );
+  modport slave (
+    clocking slave_cb, input areset_n,
+    import slave_start, slave_ticks, slave_reset
+  );
 
-  modport master_wr (clocking master_wr_cb);
-  modport slave_wr  (clocking slave_wr_cb);
-  modport master_rd (clocking master_rd_cb);
-  modport slave_rd  (clocking slave_rd_cb);
+  task master_start ();
+    master_reset();
+    fork
+      forever begin
+        wait (areset_n == 1'b0);
+        master_reset();
+        wait (areset_n == 1'b1);
+      end
+    join_none
+  endtask
+
+  task master_ticks (input int tick);
+    repeat (tick) @(master_cb);
+  endtask
 
   task master_reset ();
-    master_wr_cb.awid    <= 'b0;
-    master_wr_cb.awaddr  <= 'b0;
-    master_wr_cb.awlen   <= 'b0;
-    master_wr_cb.awsize  <= 'b0;
-    master_wr_cb.awburst <= FIXED;
-    master_wr_cb.awlock  <= NORMAL;
-    master_wr_cb.awcache <= cache_attr_e'('b0);
-    master_wr_cb.awprot  <= prot_attr_e'('b0);
-    master_wr_cb.awvalid <= 1'b0;
-    master_wr_cb.wid     <= 'b0;
-    master_wr_cb.wdata   <= 'b0;
-    master_wr_cb.wstrb   <= 'b0;
-    master_wr_cb.wlast   <= 1'b0;
-    master_wr_cb.wvalid  <= 1'b0;
-    master_wr_cb.bready  <= 1'b0;
+    master_cb.awid    <= 'b0;
+    master_cb.awaddr  <= 'b0;
+    master_cb.awlen   <= 'b0;
+    master_cb.awsize  <= 'b0;
+    master_cb.awburst <= FIXED;
+    master_cb.awlock  <= NORMAL;
+    master_cb.awcache <= cache_attr_e'('b0);
+    master_cb.awprot  <= prot_attr_e'('b0);
+    master_cb.awvalid <= 1'b0;
+    master_cb.wid     <= 'b0;
+    master_cb.wdata   <= 'b0;
+    master_cb.wstrb   <= 'b0;
+    master_cb.wlast   <= 1'b0;
+    master_cb.wvalid  <= 1'b0;
+    master_cb.bready  <= 1'b0;
 
-    master_rd_cb.arid    <= 'b0;
-    master_rd_cb.araddr  <= 'b0;
-    master_rd_cb.arlen   <= 'b0;
-    master_rd_cb.arsize  <= 'b0;
-    master_rd_cb.arburst <= FIXED;
-    master_rd_cb.arlock  <= NORMAL;
-    master_rd_cb.arcache <= cache_attr_e'('b0);
-    master_rd_cb.arprot  <= prot_attr_e'('b0);
-    master_rd_cb.arvalid <= 1'b0;
-    master_rd_cb.rready  <= 1'b0;
+    master_cb.arid    <= 'b0;
+    master_cb.araddr  <= 'b0;
+    master_cb.arlen   <= 'b0;
+    master_cb.arsize  <= 'b0;
+    master_cb.arburst <= FIXED;
+    master_cb.arlock  <= NORMAL;
+    master_cb.arcache <= cache_attr_e'('b0);
+    master_cb.arprot  <= prot_attr_e'('b0);
+    master_cb.arvalid <= 1'b0;
+    master_cb.rready  <= 1'b0;
+
+    @(master_cb);
+  endtask
+
+  task slave_start ();
+    slave_reset();
+    fork
+      forever begin
+        wait (areset_n == 1'b0);
+        slave_reset();
+        wait (areset_n == 1'b1);
+      end
+    join_none
+  endtask
+
+  task slave_ticks (input int tick);
+    repeat (tick) @(slave_cb);
   endtask
 
   task slave_reset ();
-    slave_wr_cb.awready  <= 1'b0;
-    slave_wr_cb.wready   <= 1'b0;
-    slave_wr_cb.bid      <= 'b0;
-    slave_wr_cb.bresp    <= OKAY;
-    slave_wr_cb.bvalid   <= 1'b0;
+    slave_cb.awready  <= 1'b0;
+    slave_cb.wready   <= 1'b0;
+    slave_cb.bid      <= 'b0;
+    slave_cb.bresp    <= OKAY;
+    slave_cb.bvalid   <= 1'b0;
 
-    slave_rd_cb.arready  <= 1'b0;
-    slave_rd_cb.rid      <= 'b0;
-    slave_rd_cb.rdata    <= 'b0;
-    slave_rd_cb.rresp    <= OKAY;
-    slave_rd_cb.rlast    <= 1'b0;
-    slave_rd_cb.rvalid   <= 1'b0;
+    slave_cb.arready  <= 1'b0;
+    slave_cb.rid      <= 'b0;
+    slave_cb.rdata    <= 'b0;
+    slave_cb.rresp    <= OKAY;
+    slave_cb.rlast    <= 1'b0;
+    slave_cb.rvalid   <= 1'b0;
+
+    @(slave_cb);
   endtask
 
 endinterface

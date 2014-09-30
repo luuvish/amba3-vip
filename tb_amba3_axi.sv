@@ -39,14 +39,15 @@ module tb_amba3_axi;
   localparam integer ACLK_PERIOD = 2; // 500Mhz -> 2ns
   localparam integer AXID_SIZE = 4, ADDR_SIZE = 32, DATA_SIZE = 128;
 
-  typedef virtual amba3_axi_if #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) axi_if;
-  typedef amba3_axi_master_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) axi_master_t;
-  typedef amba3_axi_slave_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) axi_slave_t;
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
 
   logic aclk;
   logic areset_n;
 
   amba3_axi_if #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) axi (aclk, areset_n);
+  amba3_axi_master_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) master = new (axi);
+  amba3_axi_slave_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) slave = new (axi);
 
   initial begin
     aclk = 1'b0;
@@ -62,22 +63,79 @@ module tb_amba3_axi;
   end
 
   initial begin
+    static int count = 0;
+    void'($value$plusargs("unittest=%d", count));
+
     if ($test$plusargs("waveform")) begin
       $shm_open("waveform");
       $shm_probe("ars");
     end
 
-    example (axi);
-    repeat (1000) @(posedge aclk);
+    master.start();
+    slave.start();
+    repeat (100) @(posedge aclk);
+
+    if (count > 0)
+      unit_test(count);
+    else
+      example();
+
+    repeat (100) @(posedge aclk);
     $finish;
   end
 
-  task example (axi_if axi);
-    static axi_master_t master = new (axi);
-    static axi_slave_t slave = new (axi);
+  task example ();
+    amba3_axi_tx_fixed_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) tx;
+
+    data_t data [4];
+
+    if ($test$plusargs("verbose")) begin
+      $display("axi example test start");
+    end
+
+    tx = new (32'h00000010, '{32'h11, 32'h12, 32'h13, 32'h14});
+    master.write(tx);
+    master.ticks(random_delay());
+    tx = new (32'h00000020, '{32'h21, 32'h22, 32'h23, 32'h24});
+    master.write(tx);
+    tx = new (32'h00000030, '{32'h31, 32'h32, 32'h33, 32'h34});
+    master.write(tx);
+    tx = new (32'h00000040, '{32'h41, 32'h42, 32'h43, 32'h44});
+    master.write(tx);
+    master.ticks(random_delay());
+
+    tx = new (32'h00000010, '{32'h11, 32'h12, 32'h13, 32'h14});
+    master.read(tx);
+    master.ticks(random_delay());
+    tx = new (32'h00000020, '{32'h21, 32'h22, 32'h23, 32'h24});
+    master.read(tx);
+    tx = new (32'h00000030, '{32'h31, 32'h32, 32'h33, 32'h34});
+    master.read(tx);
+    tx = new (32'h00000040, '{32'h41, 32'h42, 32'h43, 32'h44});
+    master.read(tx);
+    master.ticks(random_delay());
+
+    if ($test$plusargs("verbose")) begin
+      $display("axi example test done");
+    end
   endtask
 
-  task unit_test ();
+  task unit_test (int count);
+
+    if ($test$plusargs("verbose")) begin
+      $display("axi unittest start");
+    end
+
+    repeat (count) begin
+    end
+
+    if ($test$plusargs("verbose")) begin
+      $display("axi unittest %0d done", count);
+    end
   endtask
+
+  function automatic int random_delay ();
+    return $urandom_range(0, 1) ? 0 : $urandom_range(1, 10);
+  endfunction
 
 endmodule

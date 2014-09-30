@@ -23,47 +23,44 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
   
-    File         : pkg_amba3.sv
+    File         : pkg_amba3_axi_tx_fixed.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
-    Descriptions : package for amba 3 apb/axi
+    Descriptions : package for amba 3 axi fixed transaction
   
 ==============================================================================*/
 
-package pkg_amba3;
+class amba3_axi_tx_fixed_t
+#(
+  parameter integer AXID_SIZE = 4,
+                    ADDR_SIZE = 32,
+                    DATA_SIZE = 32
+)
+extends amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
-  typedef enum logic [1:0] {
-    FIXED, INCR, WRAP
-  } burst_type_e;
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
 
-  typedef enum logic [1:0] {
-    OKAY, EXOKAY, SLVERR, DECERR
-  } resp_type_e;
+  constraint mode_c {
+    addr.burst == FIXED;
+  }
 
-  typedef enum logic [3:0] {
-    BUFFERABLE     = 4'b0001,
-    CACHEABLE      = 4'b0010,
-    READ_ALLOCATE  = 4'b0100,
-    WRITE_ALLOCATE = 4'b1000
-  } cache_attr_e;
+  function new (input addr_t addr, input data_t data []);
+    this.addr = '{
+      addr : addr,
+      len  : (data.size() + 1),
+      size : $clog2(DATA_SIZE / 8),
+      burst: FIXED,
+      lock : lock_type_e'(2'b0),
+      cache: cache_attr_e'(4'b0),
+      prot : prot_attr_e'(3'b0)
+    };
 
-  typedef enum logic [2:0] {
-    PRIVILEGED  = 3'b001,
-    NON_SECURE  = 3'b010,
-    INSTRUCTION = 3'b100
-  } prot_attr_e;
+    foreach (data [i]) begin
+      this.data[i] = '{data:data[i], strb:{(STRB_SIZE){1'b1}}};
+    end
 
-  typedef enum logic [1:0] {
-    NORMAL, EXCLUSIVE, LOCKED
-  } lock_type_e;
+    this.resp = OKAY;
+  endfunction
 
-  `include "pkg_amba3_apb_master.svh"
-  `include "pkg_amba3_apb_slave.svh"
-  `include "pkg_amba3_axi_tx.svh"
-  `include "pkg_amba3_axi_tx_fixed.svh"
-  `include "pkg_amba3_axi_tx_incr.svh"
-  `include "pkg_amba3_axi_tx_wrap.svh"
-  `include "pkg_amba3_axi_master.svh"
-  `include "pkg_amba3_axi_slave.svh"
-
-endpackage
+endclass

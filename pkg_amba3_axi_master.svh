@@ -34,90 +34,172 @@ class amba3_axi_master_t
 #(
   parameter integer AXID_SIZE = 4,
                     ADDR_SIZE = 32,
-                    DATA_SIZE = 128
+                    DATA_SIZE = 32,
+                    MAX_DELAY = 10
 );
 
   typedef virtual amba3_axi_if #(AXID_SIZE, ADDR_SIZE, DATA_SIZE).master axi_t;
   typedef amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
+
   axi_t axi;
+
+  mailbox #(tx_t) waddr_q, wdata_q, wresp_q, raddr_q, rdata_q;
 
   function new (input axi_t axi);
     this.axi = axi;
+    this.waddr_q = new;
+    this.wdata_q = new;
+    this.wresp_q = new;
+    this.raddr_q = new;
+    this.rdata_q = new;
   endfunction
 
-  virtual task write_addr (tx_t tx);
-    @(axi.master_wr_cb);
-    axi.master_wr_cb.awid    <= tx.id;
-    axi.master_wr_cb.awaddr  <= tx.addr_channel.addr;
-    axi.master_wr_cb.awlen   <= tx.addr_channel.len;
-    axi.master_wr_cb.awsize  <= tx.addr_channel.size;
-    axi.master_wr_cb.awburst <= tx.addr_channel.burst;
-    axi.master_wr_cb.awlock  <= tx.addr_channel.lock;
-    axi.master_wr_cb.awcache <= tx.addr_channel.cache;
-    axi.master_wr_cb.awprot  <= tx.addr_channel.prot;
-    axi.master_wr_cb.awvalid <= 1'b1;
-    wait (axi.master_wr_cb.awready == 1'b1);
-    axi.master_wr_cb.awvalid <= 1'b0;
+  virtual task start ();
+    fork
+      axi.master_start();
+      ready();
+    join_none
   endtask
 
-  virtual task write_data (tx_t tx);
-    foreach (tx.data_channel [i]) begin
-      @(axi.master_wr_cb);
-      axi.master_wr_cb.wid    <= tx.id;
-      axi.master_wr_cb.wdata  <= tx.data_channel[i].data;
-      axi.master_wr_cb.wstrb  <= tx.data_channel[i].strb;
-      axi.master_wr_cb.wlast  <= (i == tx.addr_channel.len);
-      axi.master_wr_cb.wvalid <= 1'b1;
-      wait (axi.master_wr_cb.wready == 1'b1);
+  virtual task ticks (input int tick);
+    axi.master_ticks(tick);
+  endtask
+
+  virtual task reset ();
+    axi.master_reset();
+  endtask
+
+  virtual task ready ();
+    fork
+      ready_waddr();
+      ready_wdata();
+      ready_wresp();
+      ready_raddr();
+      ready_rdata();
+    join_none
+  endtask
+
+  virtual task write (input tx_t tx);
+    waddr_q.put(tx);
+    wdata_q.put(tx);
+  endtask
+
+  virtual task read (input tx_t tx);
+    raddr_q.put(tx);
+  endtask
+
+  virtual task ready_waddr ();
+    forever begin
+      tx_t tx;
+      waddr_q.get(tx);
+
+      axi.master_cb.awid    <= tx.axid;
+      axi.master_cb.awaddr  <= tx.addr.addr;
+      axi.master_cb.awlen   <= tx.addr.len;
+      axi.master_cb.awsize  <= tx.addr.size;
+      axi.master_cb.awburst <= tx.addr.burst;
+      axi.master_cb.awlock  <= tx.addr.lock;
+      axi.master_cb.awcache <= tx.addr.cache;
+      axi.master_cb.awprot  <= tx.addr.prot;
+      axi.master_cb.awvalid <= 1'b1;
+      @(axi.master_cb);
+
+      wait (axi.master_cb.awready == 1'b1);
+
+      axi.master_cb.awvalid <= 1'b0;
     end
-    axi.master_wr_cb.wvalid <= 1'b0;
   endtask
 
-  virtual task write_resp (tx_t tx);
-    foreach (tx.data_channel [i]) begin
-      while (axi.master_wr_cb.bvalid != 1'b1) begin
-        @(axi.master_wr_cb);
-        //axi.master_wr_cb.bid;
-        //axi.master_wr_cb.bresp;
-        //axi.master_wr_cb.bvalid;
-        axi.master_wr_cb.bready <= 1'b1;
+  virtual task ready_wdata ();
+    forever begin
+      tx_t tx;
+      wdata_q.get(tx);
+
+      foreach (tx.data [i]) begin
+        axi.master_cb.wid    <= tx.axid;
+        axi.master_cb.wdata  <= tx.data[i].data;
+        axi.master_cb.wstrb  <= tx.data[i].strb;
+        axi.master_cb.wlast  <= (i == tx.addr.len);
+        axi.master_cb.wvalid <= 1'b1;
+        @(axi.master_cb);
+
+        wait (axi.master_cb.wready == 1'b1);
       end
+
+      axi.master_cb.wvalid <= 1'b0;
+      wresp_q.put(tx);
     end
-
-    @(axi.master_wr_cb);
-    axi.master_wr_cb.bready <= 1'b0;
   endtask
 
-  virtual task read_addr (tx_t tx);
-    @(axi.master_rd_cb);
-    axi.master_rd_cb.arid    <= tx.id;
-    axi.master_rd_cb.araddr  <= tx.addr_channel.addr;
-    axi.master_rd_cb.arlen   <= tx.addr_channel.len;
-    axi.master_rd_cb.arsize  <= tx.addr_channel.size;
-    axi.master_rd_cb.arburst <= tx.addr_channel.burst;
-    axi.master_rd_cb.arlock  <= tx.addr_channel.lock;
-    axi.master_rd_cb.arcache <= tx.addr_channel.cache;
-    axi.master_rd_cb.arprot  <= tx.addr_channel.prot;
-    axi.master_rd_cb.arvalid <= 1'b1;
-    wait (axi.master_rd_cb.arready == 1'b1);
+  virtual task ready_wresp ();
+    forever begin
+      tx_t tx;
+      wresp_q.get(tx);
 
-    @(axi.master_rd_cb);
-    axi.master_rd_cb.arvalid <= 1'b0;
-  endtask
+      foreach (tx.data [i]) begin
+        while (axi.master_cb.bvalid != 1'b1) begin
+          @(axi.master_cb);
+          //axi.master_cb.bid;
+          //axi.master_cb.bresp;
+          //axi.master_cb.bvalid;
+          axi.master_cb.bready <= 1'b1;
+        end
+      end
 
-  virtual task read_data (tx_t tx);
-    while (axi.master_rd_cb.rvalid != 1'b1) begin
-      @(axi.master_rd_cb);
-      //axi.master_rd_cb.rid;
-      //axi.master_rd_cb.rdata;
-      //axi.master_rd_cb.rresp;
-      //axi.master_rd_cb.rlast;
-      //axi.master_rd_cb.rvalid;
-      axi.master_rd_cb.rready <= 1'b1;
+      @(axi.master_cb);
+      axi.master_cb.bready <= 1'b0;
     end
-
-    @(axi.master_rd_cb);
-    axi.master_rd_cb.rready <= 1'b0;
   endtask
+
+  virtual task ready_raddr ();
+    forever begin
+      tx_t tx;
+      raddr_q.get(tx);
+  
+      axi.master_cb.arid    <= tx.axid;
+      axi.master_cb.araddr  <= tx.addr.addr;
+      axi.master_cb.arlen   <= tx.addr.len;
+      axi.master_cb.arsize  <= tx.addr.size;
+      axi.master_cb.arburst <= tx.addr.burst;
+      axi.master_cb.arlock  <= tx.addr.lock;
+      axi.master_cb.arcache <= tx.addr.cache;
+      axi.master_cb.arprot  <= tx.addr.prot;
+      axi.master_cb.arvalid <= 1'b1;
+      @(axi.master_cb);
+
+      wait (axi.master_cb.arready == 1'b1);
+
+      axi.master_cb.arvalid <= 1'b0;
+      rdata_q.put(tx);
+    end
+  endtask
+
+  virtual task ready_rdata ();
+    forever begin
+      tx_t tx;
+      rdata_q.get(tx);
+
+      foreach (tx.data [i]) begin
+        axi.master_cb.rready <= 1'b1;
+        @(axi.master_cb);
+
+        wait (axi.master_cb.rvalid == 1'b1);
+
+        //axi.master_cb.rid;
+        //axi.master_cb.rdata;
+        //axi.master_cb.rresp;
+        //axi.master_cb.rlast;
+        //axi.master_cb.rvalid;
+      end
+
+      axi.master_cb.rready <= 1'b0;
+    end
+  endtask
+
+  virtual function int random_delay ();
+    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+  endfunction
 
 endclass

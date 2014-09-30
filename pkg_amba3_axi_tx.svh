@@ -34,15 +34,15 @@ class amba3_axi_tx_t
 #(
   parameter integer AXID_SIZE = 4,
                     ADDR_SIZE = 32,
-                    DATA_SIZE = 128
+                    DATA_SIZE = 32
 );
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
 
-  typedef enum logic {READ, WRITE} rw_mode_e;
+  typedef enum logic {READ, WRITE} mode_e;
 
-  rw_mode_e               rw;
-  logic [AXID_SIZE - 1:0] id;
+  mode_e                  mode;
+  logic [AXID_SIZE - 1:0] axid;
 
   struct {
     logic [ADDR_SIZE - 1:0] addr;
@@ -52,70 +52,59 @@ class amba3_axi_tx_t
     lock_type_e             lock;
     cache_attr_e            cache;
     prot_attr_e             prot;
-  } addr_channel;
+  } addr;
 
   struct {
     logic [DATA_SIZE - 1:0] data;
     logic [STRB_SIZE - 1:0] strb;
-  } data_channel [$:16];
+  } data [$:16];
 
   resp_type_e resp;
 
-  constraint rw_mode_c {
-    rw inside {READ, WRITE};
-  }
-
-  constraint addr_channel_c {
-    addr_channel.size == 3'b111;
-    addr_channel.burst inside {FIXED, INCR, WRAP};
-    addr_channel.lock inside {NORMAL, EXCLUSIVE, LOCKED};
-  }
-
-  constraint data_channel_c {
-    data_channel.size() == addr_channel.len + 1;
-  }
-
-  constraint resp_channel_c {
+  constraint mode_c {
+    mode inside {READ, WRITE};
+    addr.size == 3'b101;
+    addr.burst inside {FIXED, INCR, WRAP};
+    addr.lock inside {NORMAL, EXCLUSIVE, LOCKED};
+    data.size() == addr.len + 1;
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
 
-  function void make_burst (logic [ADDR_SIZE - 1:0] addr, logic [7:0] data []);
-
-  endfunction
-
-  function void report ();
+  virtual function void report ();
     $display("axi3 transaction");
-    $display("  rw : %s", rw);
-    case (rw)
-      READ: begin
-        $display("  arid    : %0d", id);
-        $display("  araddr  : %08x", addr_channel.addr);
-        $display("  arlen   : %0d", addr_channel.len);
-        $display("  arsize  : %0d", addr_channel.size);
-        $display("  arburst : %0x", addr_channel.burst);
-        $display("  arlock  : %0x", addr_channel.lock);
-        $display("  arcache : %0x", addr_channel.cache);
-        $display("  arprot  : %0x", addr_channel.prot);
-        foreach (data_channel [i]) begin
-          $display("  rid  [%02d] : %0d", i, id);
-          $display("  rdata[%02d] : %032x", i, data_channel[i].data);
-        end
+    $display("mode : %s", mode);
+
+    if (mode == READ) begin
+      $display("  arid    : %0d", axid);
+      $display("  araddr  : %0x", addr.addr);
+      $display("  arlen   : %0d", addr.len);
+      $display("  arsize  : %0d", addr.size);
+      $display("  arburst : %0s", addr.burst);
+      $display("  arlock  : %0s", addr.lock);
+      $display("  arcache : %0x", addr.cache);
+      $display("  arprot  : %0x", addr.prot);
+      foreach (data [i]) begin
+        $display("  rid  [%02d] : %0d", i, axid);
+        $display("  rdata[%02d] : %0x", i, data[i].data);
       end
-      WRITE: begin
-        $display("  awid    : %0d", id);
-        $display("  awaddr  : %08x", addr_channel.addr);
-        $display("  awlen   : %0d", addr_channel.len);
-        $display("  awsize  : %0d", addr_channel.size);
-        $display("  awburst : %0x", addr_channel.burst);
-        $display("  awlock  : %0x", addr_channel.lock);
-        $display("  awcache : %0x", addr_channel.cache);
-        $display("  awprot  : %0x", addr_channel.prot);
-        foreach (data_channel [i]) begin
-          $display("  wid  [%02d] : %0d", i, id);
-          $display("  wdata[%02d] : %032x", i, data_channel[i].data);
-          $display("  wstrb[%02d] : %04x", i, data_channel[i].strb);
-        end
+    end
+
+    if (mode == WRITE) begin
+      $display("  awid    : %0d", axid);
+      $display("  awaddr  : %0x", addr.addr);
+      $display("  awlen   : %0d", addr.len);
+      $display("  awsize  : %0d", addr.size);
+      $display("  awburst : %0s", addr.burst);
+      $display("  awlock  : %0s", addr.lock);
+      $display("  awcache : %0x", addr.cache);
+      $display("  awprot  : %0x", addr.prot);
+      foreach (data [i]) begin
+        $display("  wid  [%02d] : %0d", i, axid);
+        $display("  wdata[%02d] : %0x", i, data[i].data);
+        $display("  wstrb[%02d] : %0x", i, data[i].strb);
       end
-    endcase
+      $display("  bresp   : %0s", resp);
+    end
   endfunction
+
 endclass
