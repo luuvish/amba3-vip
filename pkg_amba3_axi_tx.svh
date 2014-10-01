@@ -39,19 +39,19 @@ class amba3_axi_tx_t
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
 
-  typedef enum logic {READ, WRITE} mode_e;
+  typedef enum logic {READ, WRITE} mode_t;
 
-  mode_e                  mode;
+  mode_t                  mode;
   logic [TXID_SIZE - 1:0] txid;
 
   struct {
     logic [ADDR_SIZE - 1:0] addr;
     logic [            3:0] len;
     logic [            2:0] size;
-    burst_type_e            burst;
-    lock_type_e             lock;
-    cache_attr_e            cache;
-    prot_attr_e             prot;
+    burst_type_t            burst;
+    lock_type_t             lock;
+    cache_attr_t            cache;
+    prot_attr_t             prot;
   } addr;
 
   struct {
@@ -59,7 +59,7 @@ class amba3_axi_tx_t
     logic [STRB_SIZE - 1:0] strb;
   } data [$:16];
 
-  resp_type_e resp;
+  resp_type_t resp;
 
   constraint mode_c {
     mode inside {READ, WRITE};

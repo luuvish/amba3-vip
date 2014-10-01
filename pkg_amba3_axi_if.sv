@@ -50,10 +50,10 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic [ADDR_SIZE - 1:0] awaddr;
   logic [            3:0] awlen;
   logic [            2:0] awsize;
-  burst_type_e            awburst;
-  lock_type_e             awlock;
-  cache_attr_e            awcache;
-  prot_attr_e             awprot;
+  burst_type_t            awburst;
+  lock_type_t             awlock;
+  cache_attr_t            awcache;
+  prot_attr_t             awprot;
   logic                   awvalid;
   logic                   awready;
 
@@ -67,7 +67,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   // write response channel signals
   logic [TXID_SIZE - 1:0] bid;
-  resp_type_e             bresp;
+  resp_type_t             bresp;
   logic                   bvalid;
   logic                   bready;
 
@@ -76,17 +76,17 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic [ADDR_SIZE - 1:0] araddr;
   logic [            3:0] arlen;
   logic [            2:0] arsize;
-  burst_type_e            arburst;
-  lock_type_e             arlock;
-  cache_attr_e            arcache;
-  prot_attr_e             arprot;
+  burst_type_t            arburst;
+  lock_type_t             arlock;
+  cache_attr_t            arcache;
+  prot_attr_t             arprot;
   logic                   arvalid;
   logic                   arready;
 
   // read data channel signals
   logic [TXID_SIZE - 1:0] rid;
   logic [DATA_SIZE - 1:0] rdata;
-  resp_type_e             rresp;
+  resp_type_t             rresp;
   logic                   rlast;
   logic                   rvalid;
   logic                   rready;
@@ -142,8 +142,8 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     master_cb.awsize  <= 'b0;
     master_cb.awburst <= FIXED;
     master_cb.awlock  <= NORMAL;
-    master_cb.awcache <= cache_attr_e'('b0);
-    master_cb.awprot  <= prot_attr_e'('b0);
+    master_cb.awcache <= cache_attr_t'('b0);
+    master_cb.awprot  <= prot_attr_t'('b0);
     master_cb.awvalid <= 1'b0;
     master_cb.wid     <= 'b0;
     master_cb.wdata   <= 'b0;
@@ -158,8 +158,8 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     master_cb.arsize  <= 'b0;
     master_cb.arburst <= FIXED;
     master_cb.arlock  <= NORMAL;
-    master_cb.arcache <= cache_attr_e'('b0);
-    master_cb.arprot  <= prot_attr_e'('b0);
+    master_cb.arcache <= cache_attr_t'('b0);
+    master_cb.arprot  <= prot_attr_t'('b0);
     master_cb.arvalid <= 1'b0;
     master_cb.rready  <= 1'b0;
 

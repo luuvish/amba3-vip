@@ -57,7 +57,7 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
       size : $clog2(DATA_SIZE / 8),
       burst: WRAP,
       lock : NORMAL,
-      cache: cache_attr_e'(4'b0),
+      cache: cache_attr_t'(4'b0),
       prot : NON_SECURE
     };
 

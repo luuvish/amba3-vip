@@ -34,28 +34,28 @@ package pkg_amba3;
 
   typedef enum logic [1:0] {
     FIXED, INCR, WRAP
-  } burst_type_e;
+  } burst_type_t;
 
   typedef enum logic [1:0] {
     OKAY, EXOKAY, SLVERR, DECERR
-  } resp_type_e;
+  } resp_type_t;
 
   typedef enum logic [3:0] {
     BUFFERABLE     = 4'b0001,
     CACHEABLE      = 4'b0010,
     READ_ALLOCATE  = 4'b0100,
     WRITE_ALLOCATE = 4'b1000
-  } cache_attr_e;
+  } cache_attr_t;
 
   typedef enum logic [2:0] {
     PRIVILEGED  = 3'b001,
     NON_SECURE  = 3'b010,
     INSTRUCTION = 3'b100
-  } prot_attr_e;
+  } prot_attr_t;
 
   typedef enum logic [1:0] {
     NORMAL, EXCLUSIVE, LOCKED
-  } lock_type_e;
+  } lock_type_t;
 
   `include "pkg_amba3_apb_master.svh"
   `include "pkg_amba3_apb_slave.svh"
