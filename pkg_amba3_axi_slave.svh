@@ -112,23 +112,30 @@ class amba3_axi_slave_t
   endtask
 
   virtual task listen_wdata ();
+    tx_t wdata_q [$];
+
     forever begin
-      tx_t tx;
-      waddr_q.peek(tx);
       axi.slave_cb.wready <= 1'b1;
       @(axi.slave_cb);
 
       wait (axi.slave_cb.wvalid == 1'b1);
       if (axi.slave_cb.wready == 1'b1) begin
-        int i = tx.data.size;
+        tx_t tx;
+        int qi [$];
+        int i;
+
+        while (waddr_q.try_get(tx)) wdata_q.push_back(tx);
+        qi = wdata_q.find_first_index with (item.txid == axi.slave_cb.wid);
+        tx = wdata_q[qi[0]];
+        i = tx.data.size;
         assert(tx.txid == axi.slave_cb.wid);
         tx.data[i].data = axi.slave_cb.wdata;
         tx.data[i].strb = axi.slave_cb.wstrb;
         assert((i == tx.addr.len) == axi.slave_cb.wlast);
-        //tx.report($sformatf("@%0dns wdata", $time));
+        tx.report($sformatf("@%0dns wdata", $time));
         if (axi.slave_cb.wlast) begin
-          waddr_q.get(tx);
-          wdata_q.put(tx);
+          wdata_q.delete(qi[0]);
+          wresp_q.put(tx);
         end
       end
 
@@ -139,7 +146,7 @@ class amba3_axi_slave_t
   virtual task listen_wresp ();
     forever begin
       tx_t tx;
-      wdata_q.get(tx);
+      wresp_q.get(tx);
 
       axi.slave_cb.bid    <= tx.txid;
       axi.slave_cb.bresp  <= OKAY;

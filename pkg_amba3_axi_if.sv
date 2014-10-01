@@ -40,6 +40,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
 
+  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
   typedef logic [STRB_SIZE - 1:0] strb_t;
@@ -112,7 +113,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   modport master (
     clocking master_cb, input areset_n,
-    import master_start, master_ticks, master_reset
+    import master_start, master_ticks, master_reset, master_write, master_read
   );
   modport slave (
     clocking slave_cb, input areset_n,
@@ -163,6 +164,38 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     master_cb.rready  <= 1'b0;
 
     @(master_cb);
+  endtask
+
+  task master_write (input tx_t tx);
+    master_cb.awid    <= tx.txid;
+    master_cb.awaddr  <= tx.addr.addr;
+    master_cb.awlen   <= tx.addr.len;
+    master_cb.awsize  <= tx.addr.size;
+    master_cb.awburst <= tx.addr.burst;
+    master_cb.awlock  <= tx.addr.lock;
+    master_cb.awcache <= tx.addr.cache;
+    master_cb.awprot  <= tx.addr.prot;
+    master_cb.awvalid <= 1'b1;
+    @(master_cb);
+
+    wait (master_cb.awready == 1'b1);
+    master_cb.awvalid <= 1'b0;
+  endtask
+
+  task master_read (input tx_t tx);
+    master_cb.arid    <= tx.txid;
+    master_cb.araddr  <= tx.addr.addr;
+    master_cb.arlen   <= tx.addr.len;
+    master_cb.arsize  <= tx.addr.size;
+    master_cb.arburst <= tx.addr.burst;
+    master_cb.arlock  <= tx.addr.lock;
+    master_cb.arcache <= tx.addr.cache;
+    master_cb.arprot  <= tx.addr.prot;
+    master_cb.arvalid <= 1'b1;
+    @(master_cb);
+
+    wait (master_cb.arready == 1'b1);
+    master_cb.arvalid <= 1'b0;
   endtask
 
   task slave_start ();

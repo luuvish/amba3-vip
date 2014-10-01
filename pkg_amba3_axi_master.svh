@@ -59,11 +59,9 @@ class amba3_axi_master_t
 
   virtual task listen ();
     fork
-      listen_waddr();
-      listen_wdata();
-      listen_wresp();
-      listen_raddr();
-      listen_rdata();
+      wdata();
+      wresp();
+      rdata();
     join_none
   endtask
 
@@ -82,46 +80,26 @@ class amba3_axi_master_t
     axi.master_reset();
   endtask
 
-  virtual task write (input tx_t tx);
+  virtual task write (input tx_t tx, input bit resp = 0);
     waddr_q.put(tx);
-    wdata_q.put(tx);
+    ticks(random_delay());
+    axi.master_write(tx);
   endtask
 
-  virtual task wresp (ref tx_t tx);
-    wresp_q.get(tx);
-  endtask
-
-  virtual task read (input tx_t tx);
+  virtual task read (input tx_t tx, input bit resp = 0);
+    ticks(random_delay());
+    axi.master_read(tx);
     raddr_q.put(tx);
   endtask
 
-  virtual task listen_waddr ();
+  virtual task wdata ();
     forever begin
       tx_t tx;
       waddr_q.get(tx);
 
-      axi.master_cb.awid    <= tx.txid;
-      axi.master_cb.awaddr  <= tx.addr.addr;
-      axi.master_cb.awlen   <= tx.addr.len;
-      axi.master_cb.awsize  <= tx.addr.size;
-      axi.master_cb.awburst <= tx.addr.burst;
-      axi.master_cb.awlock  <= tx.addr.lock;
-      axi.master_cb.awcache <= tx.addr.cache;
-      axi.master_cb.awprot  <= tx.addr.prot;
-      axi.master_cb.awvalid <= 1'b1;
-      @(axi.master_cb);
-
-      wait (axi.master_cb.awready == 1'b1);
-      axi.master_cb.awvalid <= 1'b0;
-    end
-  endtask
-
-  virtual task listen_wdata ();
-    forever begin
-      tx_t tx;
-      wdata_q.get(tx);
-
       for (int i = 0; i < tx.addr.len + 1; i++) begin
+        //ticks(random_delay());
+
         axi.master_cb.wid    <= tx.txid;
         axi.master_cb.wdata  <= tx.data[i].data;
         axi.master_cb.wstrb  <= tx.data[i].strb;
@@ -134,66 +112,58 @@ class amba3_axi_master_t
 
       axi.master_cb.wlast  <= 1'b0;
       axi.master_cb.wvalid <= 1'b0;
-      wresp_q.put(tx);
+      wdata_q.put(tx);
     end
   endtask
 
-  virtual task listen_wresp ();
+  virtual task wresp ();
+    tx_t wresp_q [$];
+
     forever begin
-      tx_t tx;
-      wresp_q.get(tx);
       axi.master_cb.bready <= 1'b1;
       @(axi.master_cb);
 
       wait (axi.master_cb.bvalid == 1'b1);
       if (axi.master_cb.bready == 1'b1) begin
+        tx_t tx;
+        int qi [$];
+
+        while (wdata_q.try_get(tx)) wresp_q.push_back(tx);
+        qi = wresp_q.find_first_index with (item.txid == axi.master_cb.bid);
+        tx = wresp_q[qi[0]];
         assert(tx.txid == axi.master_cb.bid);
         assert(OKAY == axi.master_cb.bresp);
         tx.resp = axi.master_cb.bresp;
+        wresp_q.delete(qi[0]);
       end
 
       axi.master_cb.bready <= 1'b0;
     end
   endtask
 
-  virtual task listen_raddr ();
+  virtual task rdata ();
+    tx_t rdata_q [$];
+
     forever begin
-      tx_t tx;
-      raddr_q.get(tx);
-
-      axi.master_cb.arid    <= tx.txid;
-      axi.master_cb.araddr  <= tx.addr.addr;
-      axi.master_cb.arlen   <= tx.addr.len;
-      axi.master_cb.arsize  <= tx.addr.size;
-      axi.master_cb.arburst <= tx.addr.burst;
-      axi.master_cb.arlock  <= tx.addr.lock;
-      axi.master_cb.arcache <= tx.addr.cache;
-      axi.master_cb.arprot  <= tx.addr.prot;
-      axi.master_cb.arvalid <= 1'b1;
-      @(axi.master_cb);
-
-      wait (axi.master_cb.arready == 1'b1);
-      axi.master_cb.arvalid <= 1'b0;
-      rdata_q.put(tx);
-    end
-  endtask
-
-  virtual task listen_rdata ();
-    forever begin
-      tx_t tx;
-      rdata_q.peek(tx);
       axi.master_cb.rready <= 1'b1;
       @(axi.master_cb);
 
       wait (axi.master_cb.rvalid == 1'b1);
       if (axi.master_cb.rready == 1'b1) begin
-        int i = tx.data.size;
+        tx_t tx;
+        int qi [$];
+        int i;
+
+        while (raddr_q.try_get(tx)) rdata_q.push_back(tx);
+        qi = rdata_q.find_first_index with (item.txid == axi.master_cb.rid);
+        tx = rdata_q[qi[0]];
+        i = tx.data.size;
         assert(tx.txid == axi.master_cb.rid);
         tx.data[i].data = axi.master_cb.rdata;
         assert(OKAY == axi.master_cb.rresp);
         assert((i == tx.addr.len) == axi.master_cb.rlast);
         if (axi.master_cb.rlast) begin
-          rdata_q.get(tx);
+          rdata_q.delete(qi[0]);
         end
       end
 

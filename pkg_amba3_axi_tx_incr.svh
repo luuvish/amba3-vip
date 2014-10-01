@@ -38,6 +38,8 @@ class amba3_axi_tx_incr_t
 )
 extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
+  localparam integer STRB_SIZE = DATA_SIZE / 8;
+
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
@@ -54,7 +56,7 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
       len  : (size > 0 ? size : data.size()) - 1,
       size : $clog2(DATA_SIZE / 8),
       burst: INCR,
-      lock : lock_type_e'(2'b0),
+      lock : NORMAL,
       cache: cache_attr_e'(4'b0),
       prot : NON_SECURE
     };
