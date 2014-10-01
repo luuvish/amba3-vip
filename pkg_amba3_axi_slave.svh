@@ -40,6 +40,7 @@ class amba3_axi_slave_t
 );
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
+  localparam integer ADDR_BASE = $clog2(STRB_SIZE);
 
   typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).slave axi_t;
   typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
@@ -48,26 +49,72 @@ class amba3_axi_slave_t
 
   axi_t axi;
 
-  mailbox #(tx_t) waddr_q, wdata_q, wresp_q, raddr_q, rdata_q;
+  mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
+  tx_t wdata_q [$];
 
-  logic [DATA_SIZE - 1:0] mems [logic [ADDR_SIZE - 1:4]];
+  data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
 
   function new (input axi_t axi);
     this.axi = axi;
     this.waddr_q = new (MAX_QUEUE);
-    this.wdata_q = new (MAX_QUEUE);
     this.wresp_q = new (MAX_QUEUE);
     this.raddr_q = new (MAX_QUEUE);
-    this.rdata_q = new (MAX_QUEUE);
   endfunction
 
   virtual task listen ();
     fork
-      listen_waddr();
-      listen_wdata();
-      listen_wresp();
-      listen_raddr();
-      listen_rdata();
+      forever begin
+        tx_t rx;
+        ticks(random_delay());
+        axi.slave_waddr(rx);
+
+        if (rx != null)
+          waddr_q.put(rx);
+      end
+      forever begin
+        tx_t rx, tx;
+        ticks(random_delay());
+        axi.slave_wdata(rx);
+
+        if (rx != null) begin
+          while (waddr_q.try_get(tx))
+            wdata_q.push_back(tx);
+
+          tx = find_tx(wdata_q, rx.txid, rx.data[0].last);
+          assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+
+          tx.data[tx.data.size] = rx.data[0];
+          if (rx.data[0].last)
+            wresp_q.put(tx);
+        end
+      end
+      forever begin
+        tx_t tx;
+        wresp_q.get(tx);
+
+        ticks(random_delay());
+        write(tx);
+        axi.slave_wresp(tx);
+      end
+      forever begin
+        tx_t rx;
+        ticks(random_delay());
+        axi.slave_raddr(rx);
+
+        if (rx != null)
+          raddr_q.put(rx);
+      end
+      forever begin
+        tx_t tx;
+        raddr_q.get(tx);
+        read(tx);
+
+        for (int i = 0; i < tx.addr.len + 1; i++) begin
+          ticks(random_delay());
+          axi.slave_rdata(tx, i);
+          //tx.report($sformatf("@%0dns rdata", $time));
+        end
+      end
     join_none
   endtask
 
@@ -86,124 +133,36 @@ class amba3_axi_slave_t
     axi.slave_reset();
   endtask
 
-  virtual task listen_waddr ();
-    forever begin
-      axi.slave_cb.awready <= waddr_q.num < MAX_QUEUE;
-      @(axi.slave_cb);
-
-      wait (axi.slave_cb.awvalid == 1'b1);
-      if (axi.slave_cb.awready == 1'b1) begin
-        tx_t tx = new;
-        tx.mode       = tx_t::WRITE;
-        tx.txid       = axi.slave_cb.awid;
-        tx.addr.addr  = axi.slave_cb.awaddr;
-        tx.addr.len   = axi.slave_cb.awlen;
-        tx.addr.size  = axi.slave_cb.awsize;
-        tx.addr.burst = axi.slave_cb.awburst;
-        tx.addr.lock  = axi.slave_cb.awlock;
-        tx.addr.cache = axi.slave_cb.awcache;
-        tx.addr.prot  = axi.slave_cb.awprot;
-        //tx.report($sformatf("@%0dns waddr", $time));
-        waddr_q.put(tx);
-      end
-
-      axi.slave_cb.awready <= 1'b0;
+  virtual task write (input tx_t tx);
+    if (tx.addr.burst == FIXED) begin
+      mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE]] = tx.data[tx.addr.len].data;
     end
-  endtask
-
-  virtual task listen_wdata ();
-    tx_t wdata_q [$];
-
-    forever begin
-      axi.slave_cb.wready <= 1'b1;
-      @(axi.slave_cb);
-
-      wait (axi.slave_cb.wvalid == 1'b1);
-      if (axi.slave_cb.wready == 1'b1) begin
-        tx_t tx;
-        int qi [$];
-        int i;
-
-        while (waddr_q.try_get(tx)) wdata_q.push_back(tx);
-        qi = wdata_q.find_first_index with (item.txid == axi.slave_cb.wid);
-        tx = wdata_q[qi[0]];
-        i = tx.data.size;
-        assert(tx.txid == axi.slave_cb.wid);
-        tx.data[i].data = axi.slave_cb.wdata;
-        tx.data[i].strb = axi.slave_cb.wstrb;
-        assert((i == tx.addr.len) == axi.slave_cb.wlast);
-        tx.report($sformatf("@%0dns wdata", $time));
-        if (axi.slave_cb.wlast) begin
-          wdata_q.delete(qi[0]);
-          wresp_q.put(tx);
-        end
-      end
-
-      axi.slave_cb.wready <= 1'b0;
-    end
-  endtask
-
-  virtual task listen_wresp ();
-    forever begin
-      tx_t tx;
-      wresp_q.get(tx);
-
-      axi.slave_cb.bid    <= tx.txid;
-      axi.slave_cb.bresp  <= OKAY;
-      axi.slave_cb.bvalid <= 1'b1;
-      @(axi.slave_cb);
-
-      wait (axi.slave_cb.bready == 1'b1);
-      axi.slave_cb.bvalid <= 1'b0;
-    end
-  endtask
-
-  virtual task listen_raddr ();
-    forever begin
-      axi.slave_cb.arready <= raddr_q.num < MAX_QUEUE;
-      @(axi.slave_cb);
-
-      wait (axi.slave_cb.arvalid == 1'b1);
-      if (axi.slave_cb.arready == 1'b1) begin
-        tx_t tx = new;
-        tx.mode       = tx_t::READ;
-        tx.txid       = axi.slave_cb.arid;
-        tx.addr.addr  = axi.slave_cb.araddr;
-        tx.addr.len   = axi.slave_cb.arlen;
-        tx.addr.size  = axi.slave_cb.arsize;
-        tx.addr.burst = axi.slave_cb.arburst;
-        tx.addr.lock  = axi.slave_cb.arlock;
-        tx.addr.cache = axi.slave_cb.arcache;
-        tx.addr.prot  = axi.slave_cb.arprot;
-        //tx.report($sformatf("@%0dns raddr", $time));
-        raddr_q.put(tx);
-      end
-
-      axi.slave_cb.arready <= 1'b0;
-    end
-  endtask
-
-  virtual task listen_rdata ();
-    forever begin
-      tx_t tx;
-      raddr_q.get(tx);
-
+    if (tx.addr.burst == INCR) begin
       for (int i = 0; i < tx.addr.len + 1; i++) begin
-        axi.slave_cb.rid    <= tx.txid;
-        axi.slave_cb.rdata  <= tx.data[i].data;
-        axi.slave_cb.rresp  <= OKAY;
-        axi.slave_cb.rlast  <= (i == tx.addr.len);
-        axi.slave_cb.rvalid <= 1'b1;
-        @(axi.slave_cb);
-
-        wait (axi.slave_cb.rready == 1'b1);
-        //tx.report($sformatf("@%0dns rdata", $time));
+        mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE] + i] = tx.data[i].data;
       end
-
-      axi.slave_cb.rlast  <= 1'b0;
-      axi.slave_cb.rvalid <= 1'b0;
     end
   endtask
+
+  virtual task read (input tx_t tx);
+    for (int i = 0; i < tx.addr.len + 1; i++) begin
+      if (tx.addr.burst == FIXED) begin
+        tx.data[i].data = mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE]];
+      end
+      if (tx.addr.burst == INCR) begin
+        tx.data[i].data = mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE] + i];
+      end
+    end
+  endtask
+
+  virtual function tx_t find_tx (ref tx_t q [$], input int txid, bit remove=1);
+    tx_t tx;
+    int qi [$];
+    qi = q.find_first_index with (item.txid == txid);
+    tx = q[qi[0]];
+    if (remove) q.delete(qi[0]);
+    return tx;
+  endfunction
 
   virtual function int random_delay ();
     return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);

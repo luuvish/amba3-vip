@@ -46,22 +46,63 @@ class amba3_axi_master_t
 
   axi_t axi;
 
-  mailbox #(tx_t) waddr_q, wdata_q, wresp_q, raddr_q, rdata_q;
+  mailbox #(tx_t) waddr_q, wdata_q, raddr_q;
+  tx_t wresp_q [$];
+  tx_t rdata_q [$];
 
   function new (input axi_t axi);
     this.axi = axi;
     this.waddr_q = new (MAX_QUEUE);
     this.wdata_q = new (MAX_QUEUE);
-    this.wresp_q = new (MAX_QUEUE);
     this.raddr_q = new (MAX_QUEUE);
-    this.rdata_q = new (MAX_QUEUE);
   endfunction
 
   virtual task listen ();
     fork
-      wdata();
-      wresp();
-      rdata();
+      forever begin
+        tx_t tx;
+        waddr_q.get(tx);
+
+        for (int i = 0; i < tx.addr.len + 1; i++) begin
+          ticks(random_delay());
+          axi.master_wdata(tx, i);
+        end
+        wdata_q.put(tx);
+      end
+      forever begin
+        tx_t rx, tx;
+        ticks(random_delay());
+        axi.master_wresp(rx);
+
+        if (rx != null) begin
+          while (wdata_q.try_get(tx))
+            wresp_q.push_back(tx);
+
+          tx = find_tx(wresp_q, rx.txid);
+          assert(rx.resp == OKAY);
+
+          tx.resp = rx.resp;
+          -> tx.done;
+        end
+      end
+      forever begin
+        tx_t rx, tx;
+        ticks(random_delay());
+        axi.master_rdata(rx);
+
+        if (rx != null) begin
+          while (raddr_q.try_get(tx))
+            rdata_q.push_back(tx);
+
+          tx = find_tx(rdata_q, rx.txid, rx.data[0].last);
+          assert(rx.data[0].resp == OKAY);
+          assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+
+          tx.data[tx.data.size] = rx.data[0];
+          if (rx.data[0].last == 1'b1)
+            -> tx.done;
+        end
+      end
     join_none
   endtask
 
@@ -81,95 +122,33 @@ class amba3_axi_master_t
   endtask
 
   virtual task write (input tx_t tx, input bit resp = 0);
+    tx.mode = tx_t::WRITE;
     waddr_q.put(tx);
     ticks(random_delay());
-    axi.master_write(tx);
+    axi.master_waddr(tx);
+
+    if (resp == 1'b1)
+      wait (tx.done.triggered);
   endtask
 
   virtual task read (input tx_t tx, input bit resp = 0);
+    tx.mode = tx_t::READ;
     ticks(random_delay());
-    axi.master_read(tx);
+    axi.master_raddr(tx);
     raddr_q.put(tx);
+
+    if (resp == 1'b1)
+      wait (tx.done.triggered);
   endtask
 
-  virtual task wdata ();
-    forever begin
-      tx_t tx;
-      waddr_q.get(tx);
-
-      for (int i = 0; i < tx.addr.len + 1; i++) begin
-        //ticks(random_delay());
-
-        axi.master_cb.wid    <= tx.txid;
-        axi.master_cb.wdata  <= tx.data[i].data;
-        axi.master_cb.wstrb  <= tx.data[i].strb;
-        axi.master_cb.wlast  <= (i == tx.addr.len);
-        axi.master_cb.wvalid <= 1'b1;
-        @(axi.master_cb);
-
-        wait (axi.master_cb.wready == 1'b1);
-      end
-
-      axi.master_cb.wlast  <= 1'b0;
-      axi.master_cb.wvalid <= 1'b0;
-      wdata_q.put(tx);
-    end
-  endtask
-
-  virtual task wresp ();
-    tx_t wresp_q [$];
-
-    forever begin
-      axi.master_cb.bready <= 1'b1;
-      @(axi.master_cb);
-
-      wait (axi.master_cb.bvalid == 1'b1);
-      if (axi.master_cb.bready == 1'b1) begin
-        tx_t tx;
-        int qi [$];
-
-        while (wdata_q.try_get(tx)) wresp_q.push_back(tx);
-        qi = wresp_q.find_first_index with (item.txid == axi.master_cb.bid);
-        tx = wresp_q[qi[0]];
-        assert(tx.txid == axi.master_cb.bid);
-        assert(OKAY == axi.master_cb.bresp);
-        tx.resp = axi.master_cb.bresp;
-        wresp_q.delete(qi[0]);
-      end
-
-      axi.master_cb.bready <= 1'b0;
-    end
-  endtask
-
-  virtual task rdata ();
-    tx_t rdata_q [$];
-
-    forever begin
-      axi.master_cb.rready <= 1'b1;
-      @(axi.master_cb);
-
-      wait (axi.master_cb.rvalid == 1'b1);
-      if (axi.master_cb.rready == 1'b1) begin
-        tx_t tx;
-        int qi [$];
-        int i;
-
-        while (raddr_q.try_get(tx)) rdata_q.push_back(tx);
-        qi = rdata_q.find_first_index with (item.txid == axi.master_cb.rid);
-        tx = rdata_q[qi[0]];
-        i = tx.data.size;
-        assert(tx.txid == axi.master_cb.rid);
-        tx.data[i].data = axi.master_cb.rdata;
-        assert(OKAY == axi.master_cb.rresp);
-        assert((i == tx.addr.len) == axi.master_cb.rlast);
-        if (axi.master_cb.rlast) begin
-          rdata_q.delete(qi[0]);
-        end
-      end
-
-      axi.master_cb.rready <= 1'b0;
-    end
-  endtask
+  virtual function tx_t find_tx (ref tx_t q [$], input int txid, bit remove=1);
+    tx_t tx;
+    int qi [$];
+    qi = q.find_first_index with (item.txid == txid);
+    tx = q[qi[0]];
+    if (remove) q.delete(qi[0]);
+    return tx;
+  endfunction
 
   virtual function int random_delay ();
     return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);

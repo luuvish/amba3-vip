@@ -62,7 +62,12 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
     };
 
     foreach (data [i]) begin
-      this.data[i] = '{data:data[i], strb:'1};
+      this.data[i] = '{
+        data: data[i],
+        strb: '1,
+        resp: OKAY,
+        last: (i == this.addr.len)
+      };
     end
 
     this.resp = OKAY;

@@ -57,9 +57,12 @@ class amba3_axi_tx_t
   struct {
     logic [DATA_SIZE - 1:0] data;
     logic [STRB_SIZE - 1:0] strb;
+    resp_type_t             resp;
+    logic                   last;
   } data [$:16];
 
   resp_type_t resp;
+  event       done;
 
   constraint mode_c {
     mode inside {READ, WRITE};
@@ -88,6 +91,8 @@ class amba3_axi_tx_t
       foreach (data [i]) begin
         $display("%s  rid  [%02d] : %0d", tabs, i, txid);
         $display("%s  rdata[%02d] : %0x", tabs, i, data[i].data);
+        $display("%s  rresp[%02d] : %0x", tabs, i, data[i].resp);
+        $display("%s  rlast[%02d] : %0x", tabs, i, data[i].last);
       end
     end
 
@@ -104,6 +109,7 @@ class amba3_axi_tx_t
         $display("%s  wid  [%02d] : %0d", tabs, i, txid);
         $display("%s  wdata[%02d] : %0x", tabs, i, data[i].data);
         $display("%s  wstrb[%02d] : %0x", tabs, i, data[i].strb);
+        $display("%s  wlast[%02d] : %0x", tabs, i, data[i].last);
       end
       $display("%s  bresp   : %0s", tabs, resp.name);
     end
