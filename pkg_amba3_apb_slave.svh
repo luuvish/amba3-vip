@@ -71,7 +71,7 @@ class amba3_apb_slave_t
       @(apb.slave_cb);
 
       wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
-      apb.slave_cb.pready <= $urandom_range(0, 'b1);
+      apb.slave_cb.pready <= $urandom_range(0, 1);
     end
   endtask
 

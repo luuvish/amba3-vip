@@ -84,11 +84,11 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
   endtask
 
   task master_reset ();
-    master_cb.paddr   <= 'b0;
-    master_cb.psel    <= 1'b0;
-    master_cb.penable <= 1'b0;
-    master_cb.pwrite  <= 1'b0;
-    master_cb.pwdata  <= 'b0;
+    master_cb.paddr   <= '0;
+    master_cb.psel    <= '0;
+    master_cb.penable <= '0;
+    master_cb.pwrite  <= '0;
+    master_cb.pwdata  <= '0;
     @(master_cb);
   endtask
 
@@ -104,11 +104,11 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     @(master_cb);
 
     wait (master_cb.pready == 1'b1);
-    master_cb.paddr   <= 'b0;
+    master_cb.paddr   <= '0;
     master_cb.pwrite  <= 1'b0;
     master_cb.psel    <= 1'b0;
     master_cb.penable <= 1'b0;
-    master_cb.pwdata  <= 'b0;
+    master_cb.pwdata  <= '0;
   endtask
 
   task master_read (input addr_t addr, output data_t data);
@@ -116,7 +116,7 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_cb.pwrite  <= 1'b0;
     master_cb.psel    <= 1'b1;
     master_cb.penable <= 1'b0;
-    master_cb.pwdata  <= 'b0;
+    master_cb.pwdata  <= '0;
     @(master_cb);
 
     master_cb.penable <= 1'b1;
@@ -124,11 +124,11 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
 
     wait (master_cb.pready == 1'b1);
     data = master_cb.prdata;
-    master_cb.paddr   <= 'b0;
+    master_cb.paddr   <= '0;
     master_cb.pwrite  <= 1'b0;
     master_cb.psel    <= 1'b0;
     master_cb.penable <= 1'b0;
-    master_cb.pwdata  <= 'b0;
+    master_cb.pwdata  <= '0;
   endtask
 
   task slave_listen ();
@@ -149,7 +149,7 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
 
       wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b1);
       slave_cb.pready <= 1'b0;
-      slave_cb.prdata <= 'b0;
+      slave_cb.prdata <= '0;
     end
   endtask
 
@@ -170,7 +170,7 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
 
   task slave_reset ();
     slave_cb.pready <= 1'b0;
-    slave_cb.prdata <= 'b0;
+    slave_cb.prdata <= '0;
     @(slave_cb);
   endtask
 

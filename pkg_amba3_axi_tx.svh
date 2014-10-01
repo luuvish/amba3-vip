@@ -63,7 +63,6 @@ class amba3_axi_tx_t
 
   constraint mode_c {
     mode inside {READ, WRITE};
-    addr.size == 3'b101;
     addr.burst inside {FIXED, INCR, WRAP};
     addr.lock inside {NORMAL, EXCLUSIVE, LOCKED};
     data.size() == addr.len + 1;

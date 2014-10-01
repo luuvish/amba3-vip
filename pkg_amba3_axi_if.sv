@@ -136,30 +136,30 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   endtask
 
   task master_reset ();
-    master_cb.awid    <= 'b0;
-    master_cb.awaddr  <= 'b0;
-    master_cb.awlen   <= 'b0;
-    master_cb.awsize  <= 'b0;
+    master_cb.awid    <= '0;
+    master_cb.awaddr  <= '0;
+    master_cb.awlen   <= '0;
+    master_cb.awsize  <= '0;
     master_cb.awburst <= FIXED;
     master_cb.awlock  <= NORMAL;
-    master_cb.awcache <= cache_attr_t'('b0);
-    master_cb.awprot  <= prot_attr_t'('b0);
+    master_cb.awcache <= cache_attr_t'('0);
+    master_cb.awprot  <= prot_attr_t'('0);
     master_cb.awvalid <= 1'b0;
-    master_cb.wid     <= 'b0;
-    master_cb.wdata   <= 'b0;
-    master_cb.wstrb   <= 'b0;
+    master_cb.wid     <= '0;
+    master_cb.wdata   <= '0;
+    master_cb.wstrb   <= '0;
     master_cb.wlast   <= 1'b0;
     master_cb.wvalid  <= 1'b0;
     master_cb.bready  <= 1'b0;
 
-    master_cb.arid    <= 'b0;
-    master_cb.araddr  <= 'b0;
-    master_cb.arlen   <= 'b0;
-    master_cb.arsize  <= 'b0;
+    master_cb.arid    <= '0;
+    master_cb.araddr  <= '0;
+    master_cb.arlen   <= '0;
+    master_cb.arsize  <= '0;
     master_cb.arburst <= FIXED;
     master_cb.arlock  <= NORMAL;
-    master_cb.arcache <= cache_attr_t'('b0);
-    master_cb.arprot  <= prot_attr_t'('b0);
+    master_cb.arcache <= cache_attr_t'('0);
+    master_cb.arprot  <= prot_attr_t'('0);
     master_cb.arvalid <= 1'b0;
     master_cb.rready  <= 1'b0;
 
@@ -214,15 +214,15 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   endtask
 
   task slave_reset ();
-    slave_cb.awready  <= 1'b0;
-    slave_cb.wready   <= 1'b0;
-    slave_cb.bid      <= 'b0;
+    slave_cb.awready  <= '0;
+    slave_cb.wready   <= '0;
+    slave_cb.bid      <= '0;
     slave_cb.bresp    <= OKAY;
     slave_cb.bvalid   <= 1'b0;
 
     slave_cb.arready  <= 1'b0;
-    slave_cb.rid      <= 'b0;
-    slave_cb.rdata    <= 'b0;
+    slave_cb.rid      <= '0;
+    slave_cb.rdata    <= '0;
     slave_cb.rresp    <= OKAY;
     slave_cb.rlast    <= 1'b0;
     slave_cb.rvalid   <= 1'b0;

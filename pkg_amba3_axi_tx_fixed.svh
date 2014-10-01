@@ -57,12 +57,12 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
       size : $clog2(DATA_SIZE / 8),
       burst: FIXED,
       lock : NORMAL,
-      cache: cache_attr_t'(4'b0),
+      cache: cache_attr_t'('0),
       prot : NON_SECURE
     };
 
     foreach (data [i]) begin
-      this.data[i] = '{data:data[i], strb:{(STRB_SIZE){1'b1}}};
+      this.data[i] = '{data:data[i], strb:'1};
     end
 
     this.resp = OKAY;
