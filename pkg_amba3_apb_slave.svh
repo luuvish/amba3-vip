@@ -22,12 +22,12 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_apb_slave.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 apb 1.0 slave
-  
+
 ==============================================================================*/
 
 class amba3_apb_slave_t
@@ -37,13 +37,15 @@ class amba3_apb_slave_t
                     MAX_DELAY = 10
 );
 
+  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
+
   typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).slave apb_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
   apb_t apb;
 
-  data_t mems [addr_t];
+  data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
 
   function new (input apb_t apb);
     this.apb = apb;
@@ -69,7 +71,7 @@ class amba3_apb_slave_t
       @(apb.slave_cb);
 
       wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
-      apb.slave_cb.pready <= $urandom_range(0, 1) ? 1'b0 : 1'b1;
+      apb.slave_cb.pready <= $urandom_range(0, 'b1);
     end
   endtask
 
@@ -89,11 +91,11 @@ class amba3_apb_slave_t
   endtask
 
   virtual task write (input addr_t addr, input data_t data);
-    mems[addr] = data;
+    mems[addr[ADDR_SIZE - 1:ADDR_BASE]] = data;
   endtask
 
   virtual task read (input addr_t addr, output data_t data);
-    data = mems[addr];
+    data = mems[addr[ADDR_SIZE - 1:ADDR_BASE]];
   endtask
 
   virtual function int random_delay ();

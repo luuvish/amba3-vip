@@ -22,21 +22,21 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_tx_fixed.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi fixed transaction
-  
+
 ==============================================================================*/
 
 class amba3_axi_tx_fixed_t
 #(
-  parameter integer AXID_SIZE = 4,
+  parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32
 )
-extends amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE);
+extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
@@ -45,15 +45,18 @@ extends amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE);
     addr.burst == FIXED;
   }
 
-  function new (input addr_t addr, input data_t data []);
+  function new (addr_t addr, data_t data [] = {}, int size = 0);
+    this.mode = size > 0 ? READ : WRITE;
+    this.txid = $urandom_range(0, 'b1111);
+
     this.addr = '{
       addr : addr,
-      len  : (data.size() + 1),
+      len  : (size > 0 ? size : data.size()) - 1,
       size : $clog2(DATA_SIZE / 8),
       burst: FIXED,
       lock : lock_type_e'(2'b0),
       cache: cache_attr_e'(4'b0),
-      prot : prot_attr_e'(3'b0)
+      prot : NON_SECURE
     };
 
     foreach (data [i]) begin

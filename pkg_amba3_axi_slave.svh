@@ -22,24 +22,27 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_slave.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi slave
-  
+
 ==============================================================================*/
 
 class amba3_axi_slave_t
 #(
-  parameter integer AXID_SIZE = 4,
+  parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32,
-                    MAX_DELAY = 10
+                    MAX_DELAY = 10,
+                    MAX_QUEUE = 10
 );
 
-  typedef virtual amba3_axi_if #(AXID_SIZE, ADDR_SIZE, DATA_SIZE).slave axi_t;
-  typedef amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
+  localparam integer STRB_SIZE = DATA_SIZE / 8;
+
+  typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).slave axi_t;
+  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
@@ -51,17 +54,27 @@ class amba3_axi_slave_t
 
   function new (input axi_t axi);
     this.axi = axi;
-    this.waddr_q = new;
-    this.wdata_q = new;
-    this.wresp_q = new;
-    this.raddr_q = new;
-    this.rdata_q = new;
+    this.waddr_q = new (MAX_QUEUE);
+    this.wdata_q = new (MAX_QUEUE);
+    this.wresp_q = new (MAX_QUEUE);
+    this.raddr_q = new (MAX_QUEUE);
+    this.rdata_q = new (MAX_QUEUE);
   endfunction
 
-  virtual task start ();
+  virtual task listen ();
     fork
-      axi.slave_start();
-      ready();
+      listen_waddr();
+      listen_wdata();
+      listen_wresp();
+      listen_raddr();
+      listen_rdata();
+    join_none
+  endtask
+
+  virtual task start ();
+    axi.slave_start();
+    fork
+      listen();
     join_none
   endtask
 
@@ -73,102 +86,115 @@ class amba3_axi_slave_t
     axi.slave_reset();
   endtask
 
-  virtual task ready ();
-    fork
-      ready_waddr();
-      ready_wdata();
-      ready_wresp();
-      ready_raddr();
-      ready_rdata();
-    join_none
-  endtask
-
-  virtual task ready_waddr ();
+  virtual task listen_waddr ();
     forever begin
-      tx_t tx = new;
-
-      axi.slave_cb.awready <= 1'b1;
+      axi.slave_cb.awready <= waddr_q.num < MAX_QUEUE;
       @(axi.slave_cb);
 
       wait (axi.slave_cb.awvalid == 1'b1);
+      if (axi.slave_cb.awready == 1'b1) begin
+        tx_t tx = new;
+        tx.mode       = tx_t::WRITE;
+        tx.txid       = axi.slave_cb.awid;
+        tx.addr.addr  = axi.slave_cb.awaddr;
+        tx.addr.len   = axi.slave_cb.awlen;
+        tx.addr.size  = axi.slave_cb.awsize;
+        tx.addr.burst = axi.slave_cb.awburst;
+        tx.addr.lock  = axi.slave_cb.awlock;
+        tx.addr.cache = axi.slave_cb.awcache;
+        tx.addr.prot  = axi.slave_cb.awprot;
+        //tx.report($sformatf("@%0dns waddr", $time));
+        waddr_q.put(tx);
+      end
 
-      tx.axid       = axi.slave_cb.awid;
-      tx.addr.addr  = axi.slave_cb.awaddr;
-      tx.addr.len   = axi.slave_cb.awlen;
-      tx.addr.size  = axi.slave_cb.awsize;
-      tx.addr.burst = axi.slave_cb.awburst;
-      tx.addr.lock  = axi.slave_cb.awlock;
-      tx.addr.cache = axi.slave_cb.awcache;
-      tx.addr.prot  = axi.slave_cb.awprot;
-      waddr_q.put(tx);
       axi.slave_cb.awready <= 1'b0;
     end
   endtask
 
-  virtual task ready_wdata ();
+  virtual task listen_wdata ();
     forever begin
       tx_t tx;
-      waddr_q.get(tx);
+      waddr_q.peek(tx);
+      axi.slave_cb.wready <= 1'b1;
+      @(axi.slave_cb);
 
-      for (int i = 0; i < tx.addr.len; i++) begin
-        axi.slave_cb.wready <= 1'b1;
-        @(axi.slave_cb);
-
-        wait (axi.slave_cb.wvalid == 1'b1);
-
+      wait (axi.slave_cb.wvalid == 1'b1);
+      if (axi.slave_cb.wready == 1'b1) begin
+        int i = tx.data.size;
+        assert(tx.txid == axi.slave_cb.wid);
         tx.data[i].data = axi.slave_cb.wdata;
+        tx.data[i].strb = axi.slave_cb.wstrb;
+        assert((i == tx.addr.len) == axi.slave_cb.wlast);
+        //tx.report($sformatf("@%0dns wdata", $time));
+        if (axi.slave_cb.wlast) begin
+          waddr_q.get(tx);
+          wdata_q.put(tx);
+        end
       end
 
-      wdata_q.put(tx);
       axi.slave_cb.wready <= 1'b0;
     end
   endtask
 
-  virtual task ready_wresp ();
+  virtual task listen_wresp ();
     forever begin
       tx_t tx;
       wdata_q.get(tx);
 
-      axi.slave_cb.bid    <= tx.axid;
+      axi.slave_cb.bid    <= tx.txid;
       axi.slave_cb.bresp  <= OKAY;
       axi.slave_cb.bvalid <= 1'b1;
       @(axi.slave_cb);
 
       wait (axi.slave_cb.bready == 1'b1);
-
-      axi.slave_cb.bid    <= 'b0;
-      axi.slave_cb.bresp  <= OKAY;
       axi.slave_cb.bvalid <= 1'b0;
     end
   endtask
 
-  virtual task ready_raddr ();
+  virtual task listen_raddr ();
     forever begin
-      tx_t tx;
-
-      axi.slave_cb.arready <= 1'b1;
+      axi.slave_cb.arready <= raddr_q.num < MAX_QUEUE;
       @(axi.slave_cb);
 
       wait (axi.slave_cb.arvalid == 1'b1);
+      if (axi.slave_cb.arready == 1'b1) begin
+        tx_t tx = new;
+        tx.mode       = tx_t::READ;
+        tx.txid       = axi.slave_cb.arid;
+        tx.addr.addr  = axi.slave_cb.araddr;
+        tx.addr.len   = axi.slave_cb.arlen;
+        tx.addr.size  = axi.slave_cb.arsize;
+        tx.addr.burst = axi.slave_cb.arburst;
+        tx.addr.lock  = axi.slave_cb.arlock;
+        tx.addr.cache = axi.slave_cb.arcache;
+        tx.addr.prot  = axi.slave_cb.arprot;
+        //tx.report($sformatf("@%0dns raddr", $time));
+        raddr_q.put(tx);
+      end
 
-      axi.slave_cb.arready <= 1'b1;
-      tx = new;
-      raddr_q.put(tx);
+      axi.slave_cb.arready <= 1'b0;
     end
   endtask
 
-  virtual task ready_rdata ();
+  virtual task listen_rdata ();
     forever begin
       tx_t tx;
       raddr_q.get(tx);
 
-      axi.slave_cb.rvalid <= 1'b1;
-      @(axi.slave_cb);
+      for (int i = 0; i < tx.addr.len + 1; i++) begin
+        axi.slave_cb.rid    <= tx.txid;
+        axi.slave_cb.rdata  <= tx.data[i].data;
+        axi.slave_cb.rresp  <= OKAY;
+        axi.slave_cb.rlast  <= (i == tx.addr.len);
+        axi.slave_cb.rvalid <= 1'b1;
+        @(axi.slave_cb);
 
-      wait (axi.slave_cb.rready == 1'b1);
+        wait (axi.slave_cb.rready == 1'b1);
+        //tx.report($sformatf("@%0dns rdata", $time));
+      end
 
+      axi.slave_cb.rlast  <= 1'b0;
       axi.slave_cb.rvalid <= 1'b0;
-      rdata_q.put(tx);
     end
   endtask
 

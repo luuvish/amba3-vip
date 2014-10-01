@@ -22,19 +22,19 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_if.sv
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi interface
-  
+
 ==============================================================================*/
 
 interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   import pkg_amba3::*;
 
-  parameter integer AXID_SIZE = 4,
+  parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32;
 
@@ -45,7 +45,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   typedef logic [STRB_SIZE - 1:0] strb_t;
 
   // write address channel signals
-  logic [AXID_SIZE - 1:0] awid;
+  logic [TXID_SIZE - 1:0] awid;
   logic [ADDR_SIZE - 1:0] awaddr;
   logic [            3:0] awlen;
   logic [            2:0] awsize;
@@ -57,7 +57,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic                   awready;
 
   // write data channel signals
-  logic [AXID_SIZE - 1:0] wid;
+  logic [TXID_SIZE - 1:0] wid;
   logic [DATA_SIZE - 1:0] wdata;
   logic [STRB_SIZE - 1:0] wstrb;
   logic                   wlast;
@@ -65,13 +65,13 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic                   wready;
 
   // write response channel signals
-  logic [AXID_SIZE - 1:0] bid;
+  logic [TXID_SIZE - 1:0] bid;
   resp_type_e             bresp;
   logic                   bvalid;
   logic                   bready;
 
   // read address channel signals
-  logic [AXID_SIZE - 1:0] arid;
+  logic [TXID_SIZE - 1:0] arid;
   logic [ADDR_SIZE - 1:0] araddr;
   logic [            3:0] arlen;
   logic [            2:0] arsize;
@@ -83,7 +83,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic                   arready;
 
   // read data channel signals
-  logic [AXID_SIZE - 1:0] rid;
+  logic [TXID_SIZE - 1:0] rid;
   logic [DATA_SIZE - 1:0] rdata;
   resp_type_e             rresp;
   logic                   rlast;

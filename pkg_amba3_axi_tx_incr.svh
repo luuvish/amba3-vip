@@ -22,13 +22,48 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_tx_incr.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi increment transaction
-  
+
 ==============================================================================*/
 
-class amba3_axi_tx_incr_t extends amba3_axi_tx_t;
+class amba3_axi_tx_incr_t
+#(
+  parameter integer TXID_SIZE = 4,
+                    ADDR_SIZE = 32,
+                    DATA_SIZE = 32
+)
+extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
+
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
+
+  constraint mode_c {
+    addr.burst == INCR;
+  }
+
+  function new (addr_t addr, data_t data [] = {}, int size = 0);
+    this.mode = size > 0 ? READ : WRITE;
+    this.txid = $urandom_range(0, 'b1111);
+
+    this.addr = '{
+      addr : addr,
+      len  : (size > 0 ? size : data.size()) - 1,
+      size : $clog2(DATA_SIZE / 8),
+      burst: INCR,
+      lock : lock_type_e'(2'b0),
+      cache: cache_attr_e'(4'b0),
+      prot : NON_SECURE
+    };
+
+    foreach (data [i]) begin
+      this.data[i] = '{data:data[i], strb:{(STRB_SIZE){1'b1}}};
+    end
+
+    this.resp = OKAY;
+  endfunction
+
 endclass

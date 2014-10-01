@@ -22,24 +22,25 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_master.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi master
-  
+
 ==============================================================================*/
 
 class amba3_axi_master_t
 #(
-  parameter integer AXID_SIZE = 4,
+  parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32,
-                    MAX_DELAY = 10
+                    MAX_DELAY = 10,
+                    MAX_QUEUE = 10
 );
 
-  typedef virtual amba3_axi_if #(AXID_SIZE, ADDR_SIZE, DATA_SIZE).master axi_t;
-  typedef amba3_axi_tx_t #(AXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
+  typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).master axi_t;
+  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
@@ -49,17 +50,27 @@ class amba3_axi_master_t
 
   function new (input axi_t axi);
     this.axi = axi;
-    this.waddr_q = new;
-    this.wdata_q = new;
-    this.wresp_q = new;
-    this.raddr_q = new;
-    this.rdata_q = new;
+    this.waddr_q = new (MAX_QUEUE);
+    this.wdata_q = new (MAX_QUEUE);
+    this.wresp_q = new (MAX_QUEUE);
+    this.raddr_q = new (MAX_QUEUE);
+    this.rdata_q = new (MAX_QUEUE);
   endfunction
 
-  virtual task start ();
+  virtual task listen ();
     fork
-      axi.master_start();
-      ready();
+      listen_waddr();
+      listen_wdata();
+      listen_wresp();
+      listen_raddr();
+      listen_rdata();
+    join_none
+  endtask
+
+  virtual task start ();
+    axi.master_start();
+    fork
+      listen();
     join_none
   endtask
 
@@ -71,31 +82,25 @@ class amba3_axi_master_t
     axi.master_reset();
   endtask
 
-  virtual task ready ();
-    fork
-      ready_waddr();
-      ready_wdata();
-      ready_wresp();
-      ready_raddr();
-      ready_rdata();
-    join_none
-  endtask
-
   virtual task write (input tx_t tx);
     waddr_q.put(tx);
     wdata_q.put(tx);
+  endtask
+
+  virtual task wresp (ref tx_t tx);
+    wresp_q.get(tx);
   endtask
 
   virtual task read (input tx_t tx);
     raddr_q.put(tx);
   endtask
 
-  virtual task ready_waddr ();
+  virtual task listen_waddr ();
     forever begin
       tx_t tx;
       waddr_q.get(tx);
 
-      axi.master_cb.awid    <= tx.axid;
+      axi.master_cb.awid    <= tx.txid;
       axi.master_cb.awaddr  <= tx.addr.addr;
       axi.master_cb.awlen   <= tx.addr.len;
       axi.master_cb.awsize  <= tx.addr.size;
@@ -107,18 +112,17 @@ class amba3_axi_master_t
       @(axi.master_cb);
 
       wait (axi.master_cb.awready == 1'b1);
-
       axi.master_cb.awvalid <= 1'b0;
     end
   endtask
 
-  virtual task ready_wdata ();
+  virtual task listen_wdata ();
     forever begin
       tx_t tx;
       wdata_q.get(tx);
 
-      foreach (tx.data [i]) begin
-        axi.master_cb.wid    <= tx.axid;
+      for (int i = 0; i < tx.addr.len + 1; i++) begin
+        axi.master_cb.wid    <= tx.txid;
         axi.master_cb.wdata  <= tx.data[i].data;
         axi.master_cb.wstrb  <= tx.data[i].strb;
         axi.master_cb.wlast  <= (i == tx.addr.len);
@@ -128,37 +132,36 @@ class amba3_axi_master_t
         wait (axi.master_cb.wready == 1'b1);
       end
 
+      axi.master_cb.wlast  <= 1'b0;
       axi.master_cb.wvalid <= 1'b0;
       wresp_q.put(tx);
     end
   endtask
 
-  virtual task ready_wresp ();
+  virtual task listen_wresp ();
     forever begin
       tx_t tx;
       wresp_q.get(tx);
+      axi.master_cb.bready <= 1'b1;
+      @(axi.master_cb);
 
-      foreach (tx.data [i]) begin
-        while (axi.master_cb.bvalid != 1'b1) begin
-          @(axi.master_cb);
-          //axi.master_cb.bid;
-          //axi.master_cb.bresp;
-          //axi.master_cb.bvalid;
-          axi.master_cb.bready <= 1'b1;
-        end
+      wait (axi.master_cb.bvalid == 1'b1);
+      if (axi.master_cb.bready == 1'b1) begin
+        assert(tx.txid == axi.master_cb.bid);
+        assert(OKAY == axi.master_cb.bresp);
+        tx.resp = axi.master_cb.bresp;
       end
 
-      @(axi.master_cb);
       axi.master_cb.bready <= 1'b0;
     end
   endtask
 
-  virtual task ready_raddr ();
+  virtual task listen_raddr ();
     forever begin
       tx_t tx;
       raddr_q.get(tx);
-  
-      axi.master_cb.arid    <= tx.axid;
+
+      axi.master_cb.arid    <= tx.txid;
       axi.master_cb.araddr  <= tx.addr.addr;
       axi.master_cb.arlen   <= tx.addr.len;
       axi.master_cb.arsize  <= tx.addr.size;
@@ -170,28 +173,28 @@ class amba3_axi_master_t
       @(axi.master_cb);
 
       wait (axi.master_cb.arready == 1'b1);
-
       axi.master_cb.arvalid <= 1'b0;
       rdata_q.put(tx);
     end
   endtask
 
-  virtual task ready_rdata ();
+  virtual task listen_rdata ();
     forever begin
       tx_t tx;
-      rdata_q.get(tx);
+      rdata_q.peek(tx);
+      axi.master_cb.rready <= 1'b1;
+      @(axi.master_cb);
 
-      foreach (tx.data [i]) begin
-        axi.master_cb.rready <= 1'b1;
-        @(axi.master_cb);
-
-        wait (axi.master_cb.rvalid == 1'b1);
-
-        //axi.master_cb.rid;
-        //axi.master_cb.rdata;
-        //axi.master_cb.rresp;
-        //axi.master_cb.rlast;
-        //axi.master_cb.rvalid;
+      wait (axi.master_cb.rvalid == 1'b1);
+      if (axi.master_cb.rready == 1'b1) begin
+        int i = tx.data.size;
+        assert(tx.txid == axi.master_cb.rid);
+        tx.data[i].data = axi.master_cb.rdata;
+        assert(OKAY == axi.master_cb.rresp);
+        assert((i == tx.addr.len) == axi.master_cb.rlast);
+        if (axi.master_cb.rlast) begin
+          rdata_q.get(tx);
+        end
       end
 
       axi.master_cb.rready <= 1'b0;

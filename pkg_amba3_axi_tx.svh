@@ -22,17 +22,17 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : pkg_amba3_axi_tx.svh
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : package for amba 3 axi transaction
-  
+
 ==============================================================================*/
 
 class amba3_axi_tx_t
 #(
-  parameter integer AXID_SIZE = 4,
+  parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32
 );
@@ -42,7 +42,7 @@ class amba3_axi_tx_t
   typedef enum logic {READ, WRITE} mode_e;
 
   mode_e                  mode;
-  logic [AXID_SIZE - 1:0] axid;
+  logic [TXID_SIZE - 1:0] txid;
 
   struct {
     logic [ADDR_SIZE - 1:0] addr;
@@ -70,40 +70,43 @@ class amba3_axi_tx_t
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
 
-  virtual function void report ();
-    $display("axi3 transaction");
-    $display("mode : %s", mode);
+  virtual function void report (string title = "", int tab = 0);
+    string tabs = tab == 0 ? "" : {(tab){" "}};
+
+    if (title != "") $display("%s%s", tabs, title);
+
+    $display("%s  mode    : %s", tabs, mode.name);
 
     if (mode == READ) begin
-      $display("  arid    : %0d", axid);
-      $display("  araddr  : %0x", addr.addr);
-      $display("  arlen   : %0d", addr.len);
-      $display("  arsize  : %0d", addr.size);
-      $display("  arburst : %0s", addr.burst);
-      $display("  arlock  : %0s", addr.lock);
-      $display("  arcache : %0x", addr.cache);
-      $display("  arprot  : %0x", addr.prot);
+      $display("%s  arid    : %0d", tabs, txid);
+      $display("%s  araddr  : %0x", tabs, addr.addr);
+      $display("%s  arlen   : %0d", tabs, addr.len);
+      $display("%s  arsize  : %0d", tabs, addr.size);
+      $display("%s  arburst : %0s", tabs, addr.burst.name);
+      $display("%s  arlock  : %0s", tabs, addr.lock.name);
+      $display("%s  arcache : %0x", tabs, addr.cache);
+      $display("%s  arprot  : %0x", tabs, addr.prot);
       foreach (data [i]) begin
-        $display("  rid  [%02d] : %0d", i, axid);
-        $display("  rdata[%02d] : %0x", i, data[i].data);
+        $display("%s  rid  [%02d] : %0d", tabs, i, txid);
+        $display("%s  rdata[%02d] : %0x", tabs, i, data[i].data);
       end
     end
 
     if (mode == WRITE) begin
-      $display("  awid    : %0d", axid);
-      $display("  awaddr  : %0x", addr.addr);
-      $display("  awlen   : %0d", addr.len);
-      $display("  awsize  : %0d", addr.size);
-      $display("  awburst : %0s", addr.burst);
-      $display("  awlock  : %0s", addr.lock);
-      $display("  awcache : %0x", addr.cache);
-      $display("  awprot  : %0x", addr.prot);
+      $display("%s  awid    : %0d", tabs, txid);
+      $display("%s  awaddr  : %0x", tabs, addr.addr);
+      $display("%s  awlen   : %0d", tabs, addr.len);
+      $display("%s  awsize  : %0d", tabs, addr.size);
+      $display("%s  awburst : %0s", tabs, addr.burst.name);
+      $display("%s  awlock  : %0s", tabs, addr.lock.name);
+      $display("%s  awcache : %0x", tabs, addr.cache);
+      $display("%s  awprot  : %0x", tabs, addr.prot);
       foreach (data [i]) begin
-        $display("  wid  [%02d] : %0d", i, axid);
-        $display("  wdata[%02d] : %0x", i, data[i].data);
-        $display("  wstrb[%02d] : %0x", i, data[i].strb);
+        $display("%s  wid  [%02d] : %0d", tabs, i, txid);
+        $display("%s  wdata[%02d] : %0x", tabs, i, data[i].data);
+        $display("%s  wstrb[%02d] : %0x", tabs, i, data[i].strb);
       end
-      $display("  bresp   : %0s", resp);
+      $display("%s  bresp   : %0s", tabs, resp.name);
     end
   endfunction
 

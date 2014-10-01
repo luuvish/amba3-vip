@@ -22,12 +22,12 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ================================================================================
-  
+
     File         : tb_amba3_apb.sv
     Author(s)    : luuvish (github.com/luuvish/amba3-vip)
     Modifier     : luuvish (luuvish@gmail.com)
     Descriptions : testbench for amba 3 apb 1.0
-  
+
 ==============================================================================*/
 
 `timescale 1ns/10ps
@@ -38,6 +38,7 @@ module tb_amba3_apb;
 
   localparam integer PCLK_PERIOD = 10; // 100Mhz -> 10ns
   localparam integer ADDR_SIZE = 32, DATA_SIZE = 32;
+  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
 
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
@@ -91,30 +92,30 @@ module tb_amba3_apb;
       $display("apb example test start");
     end
 
-    master.write(32'h00000000, 32'h00000004);
+    master.write('h0800, 'h00040000);
     master.ticks(random_delay());
-    master.write(32'h00000003, 32'h00000008);
+    master.write('h0040, 'h80003333);
     master.ticks(random_delay());
-    master.write(32'h00000011, 32'h00000014);
+    master.write('h0084, 'h04400011);
     master.ticks(random_delay());
-    master.write(32'h00000018, 32'h0000001C);
-    master.ticks(random_delay());
-
-    master.read(32'h00000000, data); assert(data == 32'h00000004);
-    master.ticks(random_delay());
-    master.read(32'h00000003, data); assert(data == 32'h00000008);
-    master.ticks(random_delay());
-    master.read(32'h00000011, data); assert(data == 32'h00000014);
-    master.ticks(random_delay());
-    master.read(32'h00000018, data); assert(data == 32'h0000001C);
+    master.write('h0140, 'h0000001C);
     master.ticks(random_delay());
 
-    master.write(32'h00000040, 32'h12345678);
-    master.write(32'h00000083, 32'h40506070);
-    master.write(32'h00000018, 32'h22446688);
-    master.read(32'h00000018, data); assert(data == 32'h22446688);
-    master.read(32'h00000040, data); assert(data == 32'h12345678);
-    master.read(32'h00000083, data); assert(data == 32'h40506070);
+    master.read('h0040, data); assert(data == 'h80003333);
+    master.ticks(random_delay());
+    master.read('h0140, data); assert(data == 'h0000001C);
+    master.ticks(random_delay());
+    master.read('h0800, data); assert(data == 'h00040000);
+    master.ticks(random_delay());
+    master.read('h0084, data); assert(data == 'h04400011);
+    master.ticks(random_delay());
+
+    master.write('h0040, 'h12345678);
+    master.write('h0084, 'h40506070);
+    master.write('h0018, 'h22446688);
+    master.read('h0018, data); assert(data == 'h22446688);
+    master.read('h0040, data); assert(data == 'h12345678);
+    master.read('h0084, data); assert(data == 'h40506070);
 
     if ($test$plusargs("verbose")) begin
       $display("apb example test done");
@@ -122,7 +123,8 @@ module tb_amba3_apb;
   endtask
 
   task unit_test (int count);
-    data_t mems [addr_t];
+    addr_t[ADDR_SIZE - 1:ADDR_BASE] midx;
+    data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
     addr_t addr;
     data_t data;
 
@@ -131,17 +133,19 @@ module tb_amba3_apb;
     end
 
     repeat (count) begin
-      addr = $urandom_range(0, 32'hFFFFFFFF);
-      data = $urandom_range(0, 32'hFFFFFFFF);
+      midx = $urandom_range(0, 'hFFFFFFFF);
+      data = $urandom_range(0, 'hFFFFFFFF);
+      addr = midx * (DATA_SIZE / 8);
       master.write(addr, data);
       master.ticks(random_delay());
-      mems[addr] = data;
+      mems[midx] = data;
     end
 
-    foreach (mems [addr]) begin
+    foreach (mems [midx]) begin
+      addr = midx * (DATA_SIZE / 8);
       master.read(addr, data);
       master.ticks(random_delay());
-      assert(mems[addr] == data);
+      assert(mems[midx] == data);
     end
 
     if ($test$plusargs("verbose")) begin
