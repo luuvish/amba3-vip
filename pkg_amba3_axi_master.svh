@@ -122,7 +122,7 @@ class amba3_axi_master_t
   endtask
 
   virtual task write (input tx_t tx, input bit resp = 0);
-    tx.mode = tx_t::WRITE;
+    assert(tx.mode == tx_t::WRITE);
     waddr_q.put(tx);
     ticks(random_delay());
     axi.master_waddr(tx);
@@ -132,7 +132,7 @@ class amba3_axi_master_t
   endtask
 
   virtual task read (input tx_t tx, input bit resp = 0);
-    tx.mode = tx_t::READ;
+    assert(tx.mode == tx_t::READ);
     ticks(random_delay());
     axi.master_raddr(tx);
     raddr_q.put(tx);

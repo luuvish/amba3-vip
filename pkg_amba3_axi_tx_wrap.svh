@@ -34,26 +34,34 @@ class amba3_axi_tx_wrap_t
 #(
   parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
-                    DATA_SIZE = 32
+                    DATA_SIZE = 32,
+                    BEAT_SIZE = 32
 )
 extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
+  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer BEAT_BASE = $clog2(BEAT_SIZE / 8);
 
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [STRB_SIZE - 1:0] strb_t;
+  typedef logic [BEAT_SIZE - 1:0] beat_t;
 
   constraint mode_c {
     addr.burst == WRAP;
+    addr.len inside {1, 3, 7, 15};
   }
 
-  function new (addr_t addr, data_t data [] = {}, int size = 0);
-    this.mode = size > 0 ? READ : WRITE;
+  function new (mode_t mode, addr_t addr, beat_t beat [] = {}, int size = 0);
+    assert((mode == READ ? size : beat.size) > 0);
+
+    this.mode = mode;
     this.txid = $urandom_range(0, 'b1111);
 
     this.addr = '{
       addr : addr,
-      len  : (size > 0 ? size : data.size()) - 1,
+      len  : (mode == READ ? size : beat.size) - 1,
       size : $clog2(DATA_SIZE / 8),
       burst: WRAP,
       lock : NORMAL,
@@ -61,16 +69,96 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
       prot : NON_SECURE
     };
 
-    foreach (data [i]) begin
+    write(beat);
+
+    this.resp = OKAY;
+  endfunction
+
+  function void write (beat_t beat []);
+    addr_t start_address   = this.addr.addr;
+    int    number_bytes    = BEAT_SIZE / 8;
+    addr_t aligned_address = aligned_beat_address(start_address);
+    int    burst_length    = this.addr.len + 1;
+    addr_t wrap_boundary   = (start_address >> (number_bytes * burst_length)) << (number_bytes * burst_length);
+    addr_t address_n;
+    int    lower_byte_lane;
+    int    upper_byte_lane;
+
+    foreach (beat [i]) begin
+      if (i == 0) begin
+        address_n = start_address;
+        if (address_n >= wrap_boundary + number_bytes * burst_length)
+          address_n -= number_bytes * burst_length;
+        lower_byte_lane = start_address[ADDR_BASE - 1:0];
+        upper_byte_lane = aligned_address + (number_bytes - 1) -
+          aligned_data_address(start_address);
+      end
+      else begin
+        address_n = aligned_address + i * number_bytes;
+        if (address_n >= wrap_boundary + number_bytes * burst_length)
+          address_n -= number_bytes * burst_length;
+        lower_byte_lane = address_n[ADDR_BASE - 1:0];
+        upper_byte_lane = lower_byte_lane + (number_bytes - 1);
+      end
+
       this.data[i] = '{
-        data: data[i],
-        strb: '1,
+        data: set_data(beat[i], upper_byte_lane * 8 + 8, lower_byte_lane * 8),
+        strb: set_strb('1, upper_byte_lane + 1, lower_byte_lane),
         resp: OKAY,
         last: (i == this.addr.len)
       };
     end
+  endfunction
 
-    this.resp = OKAY;
+  function void read (beat_t beat []);
+    addr_t start_address   = this.addr.addr;
+    int    number_bytes    = BEAT_SIZE / 8;
+    addr_t aligned_address = aligned_beat_address(start_address);
+    int    burst_length    = this.addr.len + 1;
+    addr_t wrap_boundary   = (start_address >> (number_bytes * burst_length)) << (number_bytes * burst_length);
+    addr_t address_n;
+    int    lower_byte_lane;
+    int    upper_byte_lane;
+
+    for (int i = 0; i < this.addr.len + 1; i++) begin
+      if (i == 0) begin
+        address_n = start_address;
+        if (address_n >= wrap_boundary + number_bytes * burst_length)
+          address_n -= number_bytes * burst_length;
+        lower_byte_lane = start_address[ADDR_BASE - 1:0];
+        upper_byte_lane = aligned_address + (number_bytes - 1) -
+          aligned_data_address(start_address);
+      end
+      else begin
+        address_n = aligned_address + i * number_bytes;
+        if (address_n >= wrap_boundary + number_bytes * burst_length)
+          address_n -= number_bytes * burst_length;
+        lower_byte_lane = address_n[ADDR_BASE - 1:0];
+        upper_byte_lane = lower_byte_lane + (number_bytes - 1);
+      end
+
+      beat[i] = get_data(this.data[i].data, upper_byte_lane * 8 + 8, lower_byte_lane * 8);
+    end
+  endfunction
+
+  function data_t set_data (beat_t beat, int upper, int lower);
+    return (beat << lower);
+  endfunction
+
+  function strb_t set_strb (strb_t strb, int upper, int lower);
+    return ((strb >> lower) & ((1 << (upper - lower)) - 1)) << lower;
+  endfunction
+
+  function beat_t get_data (data_t data, int upper, int lower);
+    return ((data >> lower) & ((1 << (upper - lower)) - 1));
+  endfunction
+
+  function addr_t aligned_data_address (input addr_t addr);
+    return (addr >> ADDR_BASE) << ADDR_BASE;
+  endfunction
+
+  function addr_t aligned_beat_address (input addr_t addr);
+    return (addr >> BEAT_BASE) << BEAT_BASE;
   endfunction
 
 endclass

@@ -68,7 +68,7 @@ class amba3_axi_tx_t
     mode inside {READ, WRITE};
     addr.burst inside {FIXED, INCR, WRAP};
     addr.lock inside {NORMAL, EXCLUSIVE, LOCKED};
-    data.size() == addr.len + 1;
+    data.size == addr.len + 1;
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
 
@@ -81,7 +81,7 @@ class amba3_axi_tx_t
 
     if (mode == READ) begin
       $display("%s  arid    : %0d", tabs, txid);
-      $display("%s  araddr  : %0x", tabs, addr.addr);
+      $display("%s  araddr  : %x",  tabs, addr.addr);
       $display("%s  arlen   : %0d", tabs, addr.len);
       $display("%s  arsize  : %0d", tabs, addr.size);
       $display("%s  arburst : %0s", tabs, addr.burst.name);
@@ -90,15 +90,15 @@ class amba3_axi_tx_t
       $display("%s  arprot  : %0x", tabs, addr.prot);
       foreach (data [i]) begin
         $display("%s  rid  [%02d] : %0d", tabs, i, txid);
-        $display("%s  rdata[%02d] : %0x", tabs, i, data[i].data);
-        $display("%s  rresp[%02d] : %0x", tabs, i, data[i].resp);
-        $display("%s  rlast[%02d] : %0x", tabs, i, data[i].last);
+        $display("%s  rdata[%02d] : %x",  tabs, i, data[i].data);
+        $display("%s  rresp[%02d] : %0s", tabs, i, data[i].resp.name);
+        $display("%s  rlast[%02d] : %x",  tabs, i, data[i].last);
       end
     end
 
     if (mode == WRITE) begin
       $display("%s  awid    : %0d", tabs, txid);
-      $display("%s  awaddr  : %0x", tabs, addr.addr);
+      $display("%s  awaddr  : %x",  tabs, addr.addr);
       $display("%s  awlen   : %0d", tabs, addr.len);
       $display("%s  awsize  : %0d", tabs, addr.size);
       $display("%s  awburst : %0s", tabs, addr.burst.name);
@@ -107,11 +107,11 @@ class amba3_axi_tx_t
       $display("%s  awprot  : %0x", tabs, addr.prot);
       foreach (data [i]) begin
         $display("%s  wid  [%02d] : %0d", tabs, i, txid);
-        $display("%s  wdata[%02d] : %0x", tabs, i, data[i].data);
-        $display("%s  wstrb[%02d] : %0x", tabs, i, data[i].strb);
-        $display("%s  wlast[%02d] : %0x", tabs, i, data[i].last);
+        $display("%s  wdata[%02d] : %x",  tabs, i, data[i].data);
+        $display("%s  wstrb[%02d] : %x",  tabs, i, data[i].strb);
+        $display("%s  wlast[%02d] : %x",  tabs, i, data[i].last);
       end
-      $display("%s  bresp   : %0s", tabs, resp.name);
+      $display("%s  bresp   : %s", tabs, resp.name);
     end
   endfunction
 
