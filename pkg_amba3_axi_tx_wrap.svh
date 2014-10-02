@@ -49,15 +49,17 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
   typedef logic [BEAT_SIZE - 1:0] beat_t;
 
   constraint mode_c {
-    addr.burst == WRAP;
+    addr.addr[BEAT_BASE - 1:0] == '0;
     addr.len inside {1, 3, 7, 15};
+    addr.burst == WRAP;
   }
 
   function new (mode_t mode, addr_t addr, beat_t beat [] = {}, int size = 0);
-    assert((mode == READ ? size : beat.size) > 0);
+    assert((mode == READ ? size : beat.size) inside {2, 4, 8, 16});
+    assert(addr[BEAT_BASE - 1:0] == '0);
 
     this.mode = mode;
-    this.txid = $urandom_range(0, 'b1111);
+    this.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);
 
     this.addr = '{
       addr : addr,
@@ -75,35 +77,13 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
   endfunction
 
   function void write (beat_t beat []);
-    addr_t start_address   = this.addr.addr;
-    int    number_bytes    = BEAT_SIZE / 8;
-    addr_t aligned_address = aligned_beat_address(start_address);
-    int    burst_length    = this.addr.len + 1;
-    addr_t wrap_boundary   = (start_address >> (number_bytes * burst_length)) << (number_bytes * burst_length);
-    addr_t address_n;
-    int    lower_byte_lane;
-    int    upper_byte_lane;
-
     foreach (beat [i]) begin
-      if (i == 0) begin
-        address_n = start_address;
-        if (address_n >= wrap_boundary + number_bytes * burst_length)
-          address_n -= number_bytes * burst_length;
-        lower_byte_lane = start_address[ADDR_BASE - 1:0];
-        upper_byte_lane = aligned_address + (number_bytes - 1) -
-          aligned_data_address(start_address);
-      end
-      else begin
-        address_n = aligned_address + i * number_bytes;
-        if (address_n >= wrap_boundary + number_bytes * burst_length)
-          address_n -= number_bytes * burst_length;
-        lower_byte_lane = address_n[ADDR_BASE - 1:0];
-        upper_byte_lane = lower_byte_lane + (number_bytes - 1);
-      end
+      int upper, lower;
+      addr_t addr = get_addr(i, upper, lower);
 
       this.data[i] = '{
-        data: set_data(beat[i], upper_byte_lane * 8 + 8, lower_byte_lane * 8),
-        strb: set_strb('1, upper_byte_lane + 1, lower_byte_lane),
+        data: set_data(beat[i], (upper + 1) * 8, lower * 8),
+        strb: set_strb('1, upper + 1, lower),
         resp: OKAY,
         last: (i == this.addr.len)
       };
@@ -111,34 +91,41 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
   endfunction
 
   function void read (beat_t beat []);
-    addr_t start_address   = this.addr.addr;
-    int    number_bytes    = BEAT_SIZE / 8;
-    addr_t aligned_address = aligned_beat_address(start_address);
-    int    burst_length    = this.addr.len + 1;
-    addr_t wrap_boundary   = (start_address >> (number_bytes * burst_length)) << (number_bytes * burst_length);
-    addr_t address_n;
-    int    lower_byte_lane;
-    int    upper_byte_lane;
-
     for (int i = 0; i < this.addr.len + 1; i++) begin
-      if (i == 0) begin
-        address_n = start_address;
-        if (address_n >= wrap_boundary + number_bytes * burst_length)
-          address_n -= number_bytes * burst_length;
-        lower_byte_lane = start_address[ADDR_BASE - 1:0];
-        upper_byte_lane = aligned_address + (number_bytes - 1) -
-          aligned_data_address(start_address);
-      end
-      else begin
-        address_n = aligned_address + i * number_bytes;
-        if (address_n >= wrap_boundary + number_bytes * burst_length)
-          address_n -= number_bytes * burst_length;
-        lower_byte_lane = address_n[ADDR_BASE - 1:0];
-        upper_byte_lane = lower_byte_lane + (number_bytes - 1);
-      end
+      int upper, lower;
+      addr_t addr = get_addr(i, upper, lower);
 
-      beat[i] = get_data(this.data[i].data, upper_byte_lane * 8 + 8, lower_byte_lane * 8);
+      beat[i] = get_data(this.data[i].data, (upper + 1) * 8, lower * 8);
     end
+  endfunction
+
+  function addr_t get_addr (int i, output int upper, output int lower);
+    const int number_bytes = BEAT_SIZE / 8;
+    int       burst_length = this.addr.len + 1;
+    addr_t wrap_boundary = (this.addr.addr >> (number_bytes * burst_length))
+                         << (number_bytes * burst_length);
+
+    addr_t address_n;
+    int lower_byte_lane;
+    int upper_byte_lane;
+
+    address_n = this.addr.addr;
+    if (i != 0)
+      address_n = (address_n >> BEAT_BASE) << BEAT_BASE;
+    address_n += i * number_bytes;
+    if (address_n >= wrap_boundary + number_bytes * burst_length)
+      address_n -= number_bytes * burst_length;
+
+    lower_byte_lane = address_n[ADDR_BASE - 1:0];
+
+    upper_byte_lane = lower_byte_lane;
+    if (i == 0)
+      upper_byte_lane = (upper_byte_lane >> BEAT_BASE) << BEAT_BASE;
+    upper_byte_lane += (number_bytes - 1);
+
+    upper = upper_byte_lane;
+    lower = lower_byte_lane;
+    return address_n;
   endfunction
 
   function data_t set_data (beat_t beat, int upper, int lower);
@@ -151,14 +138,6 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
   function beat_t get_data (data_t data, int upper, int lower);
     return ((data >> lower) & ((1 << (upper - lower)) - 1));
-  endfunction
-
-  function addr_t aligned_data_address (input addr_t addr);
-    return (addr >> ADDR_BASE) << ADDR_BASE;
-  endfunction
-
-  function addr_t aligned_beat_address (input addr_t addr);
-    return (addr >> BEAT_BASE) << BEAT_BASE;
   endfunction
 
 endclass
