@@ -47,13 +47,11 @@ class amba3_axi_slave_t
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
   typedef logic [STRB_SIZE - 1:0] strb_t;
-
   typedef struct {data_t data; strb_t strb;} item_t;
 
   axi_t axi;
 
   mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
-  tx_t wdata_q [$];
 
   item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
   data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
@@ -62,64 +60,76 @@ class amba3_axi_slave_t
     this.axi = axi;
   endfunction
 
+  virtual task start ();
+    clear();
+    fork
+      forever begin
+        fork
+          reset();
+          listen();
+        join
+      end
+    join_none
+  endtask
+
+  virtual task reset ();
+    axi.slave_reset();
+  endtask
+
   virtual task listen ();
+    tx_t wdata_q [$];
+
     waddr_q = new (MAX_QUEUE);
     wresp_q = new (MAX_QUEUE);
     raddr_q = new (MAX_QUEUE);
-    wdata_q.delete();
 
     fork
       forever begin
         tx_t rx;
+
+        wait (axi.slave_cb.awvalid == 1'b1);
         ticks(random_delay());
         axi.slave_waddr(rx);
-
-        if (rx != null)
-          waddr_q.put(rx);
+        waddr_q.put(rx);
       end
       forever begin
         tx_t rx, tx;
-        while (wdata_q.size == 0) begin
-          while (waddr_q.try_get(tx))
-            wdata_q.push_back(tx);
-          @(axi.slave_cb);
-        end
+
+        wait_q(wdata_q, waddr_q);
         ticks(random_delay());
         axi.slave_wdata(rx);
 
-        if (rx != null) begin
-          while (waddr_q.try_get(tx))
-            wdata_q.push_back(tx);
+        fill_q(wdata_q, waddr_q);
+        tx = find_tx(wdata_q, rx.txid);
 
-          tx = find_tx(wdata_q, rx.txid, rx.data[0].last);
-          assert(rx.data[0].last == (tx.data.size == tx.addr.len));
-
-          tx.data[tx.data.size] = rx.data[0];
-          if (rx.data[0].last)
-            wresp_q.put(tx);
+        assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+        tx.data[tx.data.size] = rx.data[0];
+        if (rx.data[0].last == 1'b1) begin
+          remove_tx(wdata_q, rx.txid);
+          wresp_q.put(tx);
         end
       end
       forever begin
         tx_t tx;
-        wresp_q.get(tx);
 
+        wresp_q.get(tx);
         ticks(random_delay());
         write(tx);
         axi.slave_wresp(tx);
       end
       forever begin
         tx_t rx;
+
+        wait (axi.slave_cb.arvalid == 1'b1);
         ticks(random_delay());
         axi.slave_raddr(rx);
-
-        if (rx != null)
-          raddr_q.put(rx);
+        raddr_q.put(rx);
       end
       forever begin
         tx_t tx;
+
         raddr_q.get(tx);
         read(tx);
-
         for (int i = 0; i < tx.addr.len + 1; i++) begin
           ticks(random_delay());
           axi.slave_rdata(tx, i);
@@ -128,29 +138,12 @@ class amba3_axi_slave_t
     join_none
   endtask
 
-  virtual task start ();
-    axi.slave_reset();
-    fork
-      forever begin
-        fork
-          forever begin
-            wait (axi.areset_n == 1'b0);
-            axi.slave_reset();
-            wait (axi.areset_n == 1'b1);
-            disable fork;
-          end
-          listen();
-        join
-      end
-    join_none
+  virtual task clear ();
+    axi.slave_clear();
   endtask
 
   virtual task ticks (input int tick);
     axi.slave_ticks(tick);
-  endtask
-
-  virtual task reset ();
-    axi.slave_reset();
   endtask
 
   virtual task write (input tx_t tx);
@@ -185,15 +178,6 @@ class amba3_axi_slave_t
     end
   endtask
 
-  virtual function tx_t find_tx (ref tx_t q [$], input int txid, bit remove=1);
-    tx_t tx;
-    int qi [$];
-    qi = q.find_first_index with (item.txid == txid);
-    tx = q[qi[0]];
-    if (remove) q.delete(qi[0]);
-    return tx;
-  endfunction
-
   virtual function data_t get_data (data_t data, item_t item);
     data_t merged = '0;
     foreach (item.strb [i]) begin
@@ -203,8 +187,34 @@ class amba3_axi_slave_t
     return merged;
   endfunction
 
+  virtual task wait_q (ref tx_t q [$], mailbox #(tx_t) m);
+    while (q.size == 0) begin
+      fill_q(q, m);
+      ticks(1);
+    end
+  endtask
+
+  virtual function void fill_q (ref tx_t q [$], mailbox #(tx_t) m);
+    tx_t tx;
+    while (m.try_get(tx))
+      q.push_back(tx);
+  endfunction
+
+  virtual function tx_t find_tx (ref tx_t q [$], input int txid);
+    int qi [$] = q.find_first_index with (item.txid == txid);
+    assert(qi.size > 0);
+    return q[qi[0]];
+  endfunction
+
+  virtual function void remove_tx (ref tx_t q [$], input int txid);
+    int qi [$] = q.find_first_index with (item.txid == txid);
+    assert(qi.size > 0);
+    q.delete(qi[0]);
+  endfunction
+
   virtual function int random_delay ();
-    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+    int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
+    return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction
 
 endclass

@@ -60,36 +60,46 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
 
   modport master (
     clocking master_cb, input preset_n,
-    import master_start, master_ticks, master_reset, master_write, master_read
+    import master_start, master_reset,
+    import master_clear, master_ticks, master_write, master_read
   );
   modport slave (
     clocking slave_cb, input preset_n,
-    import slave_listen,
-    import slave_start, slave_ticks, slave_reset, slave_write, slave_read
+    import slave_start, slave_reset, slave_listen,
+    import slave_clear, slave_ticks, slave_write, slave_read
   );
 
   task master_start ();
-    master_reset();
+    master_clear();
     fork
       forever begin
-        wait (preset_n == 1'b0);
-        master_reset();
-        wait (preset_n == 1'b1);
+        fork
+          master_reset();
+        join
       end
     join_none
   endtask
 
-  task master_ticks (input int tick);
-    repeat (tick) @(master_cb);
+  task master_reset ();
+    forever begin
+      wait (preset_n == 1'b0);
+      master_clear();
+      wait (preset_n == 1'b1);
+      disable fork;
+    end
   endtask
 
-  task master_reset ();
+  task master_clear ();
     master_cb.paddr   <= '0;
     master_cb.psel    <= '0;
     master_cb.penable <= '0;
     master_cb.pwrite  <= '0;
     master_cb.pwdata  <= '0;
     @(master_cb);
+  endtask
+
+  task master_ticks (input int tick);
+    repeat (tick) @(master_cb);
   endtask
 
   task master_write (input addr_t addr, input data_t data);
@@ -131,6 +141,27 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_cb.pwdata  <= '0;
   endtask
 
+  task slave_start ();
+    slave_clear();
+    fork
+      forever begin
+        fork
+          slave_reset();
+          slave_listen();
+        join
+      end
+    join_none
+  endtask
+
+  task slave_reset ();
+    forever begin
+      wait (preset_n == 1'b0);
+      slave_clear();
+      wait (preset_n == 1'b1);
+      disable fork;
+    end
+  endtask
+
   task slave_listen ();
     forever begin
       wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b0);
@@ -138,6 +169,7 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
       if (slave_cb.pwrite == 1'b1) begin
         slave_write(slave_cb.paddr, slave_cb.pwdata);
         slave_cb.pready <= 1'b1;
+        slave_cb.prdata <= '0;
       end
       if (slave_cb.pwrite == 1'b0) begin
         data_t data;
@@ -153,25 +185,14 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     end
   endtask
 
-  task slave_start ();
-    slave_reset();
-    fork
-      forever begin
-        wait (preset_n == 1'b0);
-        slave_reset();
-        wait (preset_n == 1'b1);
-      end
-    join_none
+  task slave_clear ();
+    slave_cb.pready <= 1'b0;
+    slave_cb.prdata <= '0;
+    @(slave_cb);
   endtask
 
   task slave_ticks (input int tick);
     repeat (tick) @(slave_cb);
-  endtask
-
-  task slave_reset ();
-    slave_cb.pready <= 1'b0;
-    slave_cb.prdata <= '0;
-    @(slave_cb);
   endtask
 
   task slave_write (input addr_t addr, input data_t data);

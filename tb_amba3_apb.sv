@@ -124,7 +124,7 @@ module tb_amba3_apb;
 
   task unit_test (int count);
     data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
-    addr_t wr_q [$];
+    addr_t waddr_q [$];
 
     addr_t addr;
     data_t data;
@@ -136,7 +136,7 @@ module tb_amba3_apb;
     repeat (count) begin
       addr = $urandom_range(0, 'hFFFFFFFF) * (DATA_SIZE / 8);
       data = $urandom_range(0, 'hFFFFFFFF);
-      wr_q.push_back(addr);
+      waddr_q.push_back(addr);
 
       master.write(addr, data);
       master.ticks(random_delay());
@@ -144,8 +144,10 @@ module tb_amba3_apb;
       mems[addr[ADDR_SIZE - 1:DATA_BASE]] = data;
     end
 
-    foreach (wr_q [i]) begin
-      addr = wr_q[i];
+    waddr_q.shuffle();
+
+    foreach (waddr_q [i]) begin
+      addr = waddr_q[i];
 
       master.read(addr, data);
       master.ticks(random_delay());

@@ -93,8 +93,6 @@ module tb_amba3_axi;
       $display("axi example test start");
     end
 
-    master.ticks(1);
-
     example_burst_types();
     example_burst_fixed();
     example_burst_incr();
@@ -351,7 +349,7 @@ module tb_amba3_axi;
 
     item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
     data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
-    tx_t wr_q [$], rd_q [$];
+    tx_t wdata_q [$], rdata_q [$];
 
     tx_t   tx;
     item_t item;
@@ -367,18 +365,18 @@ module tb_amba3_axi;
     for (int i = 0; i < count; i++) begin
       tx = new;
       tx.random;
-      wr_q.push_back(tx);
+      wdata_q.push_back(tx);
 
       master.write(tx, i == count - 1);
       master.ticks(random_delay());
     end
 
-    foreach (wr_q [i]) begin
-      for (int l = 0; l < wr_q[i].addr.len + 1; l++) begin
-        addr = wr_q[i].beat(l, upper, lower);
-        item = '{data: wr_q[i].data[l].data, strb: wr_q[i].data[l].strb};
+    foreach (wdata_q [i]) begin
+      for (int l = 0; l < wdata_q[i].addr.len + 1; l++) begin
+        addr = wdata_q[i].beat(l, upper, lower);
+        item = '{data: wdata_q[i].data[l].data, strb: wdata_q[i].data[l].strb};
 
-        if (wr_q[i].addr.burst == FIXED) begin
+        if (wdata_q[i].addr.burst == FIXED) begin
           fifo[addr[ADDR_SIZE - 1:DATA_BASE]].push_back(item);
         end
         else begin
@@ -388,23 +386,25 @@ module tb_amba3_axi;
       end
     end
 
+    wdata_q.shuffle();
+
     for (int i = 0; i < count; i++) begin
       tx = new;
       tx.mode = tx_t::READ;
       tx.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);
-      tx.addr = wr_q[i].addr;
-      rd_q.push_back(tx);
+      tx.addr = wdata_q[i].addr;
+      rdata_q.push_back(tx);
 
       master.read(tx, i == count - 1);
       master.ticks(random_delay());
     end
 
-    foreach (rd_q [i]) begin
-      for (int l = 0; l < rd_q[i].addr.len + 1; l++) begin
-        strb = wr_q[i].data[l].strb;
-        addr = rd_q[i].beat(l, upper, lower);
+    foreach (rdata_q [i]) begin
+      for (int l = 0; l < rdata_q[i].addr.len + 1; l++) begin
+        strb = wdata_q[i].data[l].strb;
+        addr = rdata_q[i].beat(l, upper, lower);
 
-        if (rd_q[i].addr.burst == FIXED) begin
+        if (rdata_q[i].addr.burst == FIXED) begin
           item = fifo[addr[ADDR_SIZE - 1:DATA_BASE]].pop_front();
         end
         else begin
@@ -412,7 +412,7 @@ module tb_amba3_axi;
         end
         data = get_data('0, item);
 
-        assert(get_data('0, '{rd_q[i].data[l].data, strb}) == data);
+        assert(get_data('0, '{rdata_q[i].data[l].data, strb}) == data);
       end
     end
 

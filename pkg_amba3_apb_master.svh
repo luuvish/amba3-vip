@@ -51,12 +51,16 @@ class amba3_apb_master_t
     apb.master_start();
   endtask
 
-  virtual task ticks (input int tick);
-    apb.master_ticks(tick);
-  endtask
-
   virtual task reset ();
     apb.master_reset();
+  endtask
+
+  virtual task clear ();
+    apb.master_clear();
+  endtask
+
+  virtual task ticks (input int tick);
+    apb.master_ticks(tick);
   endtask
 
   virtual task write (input addr_t addr, input data_t data);
@@ -70,7 +74,8 @@ class amba3_apb_master_t
   endtask
 
   virtual function int random_delay ();
-    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+    int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
+    return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction
 
 endclass

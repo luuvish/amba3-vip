@@ -51,6 +51,22 @@ class amba3_apb_slave_t
     this.apb = apb;
   endfunction
 
+  virtual task start ();
+    clear();
+    fork
+      forever begin
+        fork
+          reset();
+          listen();
+        join
+      end
+    join_none
+  endtask
+
+  virtual task reset ();
+    apb.slave_reset();
+  endtask
+
   virtual task listen ();
     forever begin
       wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
@@ -75,29 +91,12 @@ class amba3_apb_slave_t
     end
   endtask
 
-  virtual task start ();
-    apb.slave_start();
-    fork
-      forever begin
-        fork
-          forever begin
-            wait (apb.preset_n == 1'b0);
-            apb.slave_reset();
-            wait (apb.preset_n == 1'b1);
-            disable fork;
-          end
-          listen();
-        join
-      end
-    join_none
+  virtual task clear ();
+    apb.slave_clear();
   endtask
 
   virtual task ticks (input int tick);
     apb.slave_ticks(tick);
-  endtask
-
-  virtual task reset ();
-    apb.slave_reset();
   endtask
 
   virtual task write (input addr_t addr, input data_t data);
@@ -109,7 +108,8 @@ class amba3_apb_slave_t
   endtask
 
   virtual function int random_delay ();
-    return $urandom_range(0, 1) ? 0 : $urandom_range(1, MAX_DELAY);
+    int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
+    return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction
 
 endclass

@@ -113,31 +113,36 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
   modport master (
     clocking master_cb, input areset_n,
-    import master_start, master_ticks, master_reset,
+    import master_start, master_reset, master_clear, master_ticks,
     import master_waddr, master_wdata, master_wresp, master_raddr, master_rdata
   );
   modport slave (
     clocking slave_cb, input areset_n,
-    import slave_start, slave_ticks, slave_reset,
+    import slave_start, slave_reset, slave_clear, slave_ticks,
     import slave_waddr, slave_wdata, slave_wresp, slave_raddr, slave_rdata
   );
 
   task master_start ();
-    master_reset();
+    master_clear();
     fork
       forever begin
-        wait (areset_n == 1'b0);
-        master_reset();
-        wait (areset_n == 1'b1);
+        fork
+          master_reset();
+        join
       end
     join_none
   endtask
 
-  task master_ticks (input int tick);
-    repeat (tick) @(master_cb);
+  task master_reset ();
+    forever begin
+      wait (areset_n == 1'b0);
+      master_clear();
+      wait (areset_n == 1'b1);
+      disable fork;
+    end
   endtask
 
-  task master_reset ();
+  task master_clear ();
     master_cb.awid    <= '0;
     master_cb.awaddr  <= '0;
     master_cb.awlen   <= '0;
@@ -166,6 +171,10 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     master_cb.rready  <= 1'b0;
 
     @(master_cb);
+  endtask
+
+  task master_ticks (input int tick);
+    repeat (tick) @(master_cb);
   endtask
 
   task master_waddr (input tx_t tx);
@@ -209,17 +218,14 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   endtask
 
   task master_wresp (output tx_t tx);
-    tx = null;
     master_cb.bready <= 1'b1;
     @(master_cb);
 
     wait (master_cb.bvalid == 1'b1);
-    if (master_cb.bready == 1'b1) begin
-      tx = new;
-      tx.txid = master_cb.bid;
-      tx.resp = master_cb.bresp;
-      master_cb.bready <= 1'b0;
-    end
+    tx = new;
+    tx.txid = master_cb.bid;
+    tx.resp = master_cb.bresp;
+    master_cb.bready <= 1'b0;
   endtask
 
   task master_raddr (input tx_t tx);
@@ -247,37 +253,39 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   endtask
 
   task master_rdata (output tx_t tx);
-    tx = null;
     master_cb.rready <= 1'b1;
     @(master_cb);
 
     wait (master_cb.rvalid == 1'b1);
-    if (master_cb.rready == 1'b1) begin
-      tx = new;
-      tx.txid         = master_cb.rid;
-      tx.data[0].data = master_cb.rdata;
-      tx.data[0].resp = master_cb.rresp;
-      tx.data[0].last = master_cb.rlast;
-      master_cb.rready <= 1'b0;
-    end
+    tx = new;
+    tx.txid         = master_cb.rid;
+    tx.data[0].data = master_cb.rdata;
+    tx.data[0].resp = master_cb.rresp;
+    tx.data[0].last = master_cb.rlast;
+    master_cb.rready <= 1'b0;
   endtask
 
   task slave_start ();
-    slave_reset();
+    slave_clear();
     fork
       forever begin
-        wait (areset_n == 1'b0);
-        slave_reset();
-        wait (areset_n == 1'b1);
+        fork
+          slave_reset();
+        join
       end
     join_none
   endtask
 
-  task slave_ticks (input int tick);
-    repeat (tick) @(slave_cb);
+  task slave_reset ();
+    forever begin
+      wait (areset_n == 1'b0);
+      slave_clear();
+      wait (areset_n == 1'b1);
+      disable fork;
+    end
   endtask
 
-  task slave_reset ();
+  task slave_clear ();
     slave_cb.awready <= '0;
     slave_cb.wready  <= '0;
     slave_cb.bid     <= '0;
@@ -294,41 +302,39 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     @(slave_cb);
   endtask
 
+  task slave_ticks (input int tick);
+    repeat (tick) @(slave_cb);
+  endtask
+
   task slave_waddr (output tx_t tx);
-    tx = null;
     slave_cb.awready <= 1'b1;
     @(slave_cb);
 
     wait (slave_cb.awvalid == 1'b1);
-    if (slave_cb.awready == 1'b1) begin
-      tx = new;
-      tx.mode       = tx_t::WRITE;
-      tx.txid       = slave_cb.awid;
-      tx.addr.addr  = slave_cb.awaddr;
-      tx.addr.len   = slave_cb.awlen;
-      tx.addr.size  = slave_cb.awsize;
-      tx.addr.burst = slave_cb.awburst;
-      tx.addr.lock  = slave_cb.awlock;
-      tx.addr.cache = slave_cb.awcache;
-      tx.addr.prot  = slave_cb.awprot;
-      slave_cb.awready <= 1'b0;
-    end
+    tx = new;
+    tx.mode       = tx_t::WRITE;
+    tx.txid       = slave_cb.awid;
+    tx.addr.addr  = slave_cb.awaddr;
+    tx.addr.len   = slave_cb.awlen;
+    tx.addr.size  = slave_cb.awsize;
+    tx.addr.burst = slave_cb.awburst;
+    tx.addr.lock  = slave_cb.awlock;
+    tx.addr.cache = slave_cb.awcache;
+    tx.addr.prot  = slave_cb.awprot;
+    slave_cb.awready <= 1'b0;
   endtask
 
   task slave_wdata (output tx_t tx);
-    tx = null;
     slave_cb.wready <= 1'b1;
     @(slave_cb);
 
     wait (slave_cb.wvalid == 1'b1);
-    if (slave_cb.wready == 1'b1) begin
-      tx = new;
-      tx.txid         = slave_cb.wid;
-      tx.data[0].data = slave_cb.wdata;
-      tx.data[0].strb = slave_cb.wstrb;
-      tx.data[0].last = slave_cb.wlast;
-      slave_cb.wready <= 1'b0;
-    end
+    tx = new;
+    tx.txid         = slave_cb.wid;
+    tx.data[0].data = slave_cb.wdata;
+    tx.data[0].strb = slave_cb.wstrb;
+    tx.data[0].last = slave_cb.wlast;
+    slave_cb.wready <= 1'b0;
   endtask
 
   task slave_wresp (input tx_t tx);
@@ -344,24 +350,21 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   endtask
 
   task slave_raddr (output tx_t tx);
-    tx = null;
     slave_cb.arready <= 1'b1;
     @(slave_cb);
 
     wait (slave_cb.arvalid == 1'b1);
-    if (slave_cb.arready == 1'b1) begin
-      tx = new;
-      tx.mode       = tx_t::READ;
-      tx.txid       = slave_cb.arid;
-      tx.addr.addr  = slave_cb.araddr;
-      tx.addr.len   = slave_cb.arlen;
-      tx.addr.size  = slave_cb.arsize;
-      tx.addr.burst = slave_cb.arburst;
-      tx.addr.lock  = slave_cb.arlock;
-      tx.addr.cache = slave_cb.arcache;
-      tx.addr.prot  = slave_cb.arprot;
-      slave_cb.arready <= 1'b0;
-    end
+    tx = new;
+    tx.mode       = tx_t::READ;
+    tx.txid       = slave_cb.arid;
+    tx.addr.addr  = slave_cb.araddr;
+    tx.addr.len   = slave_cb.arlen;
+    tx.addr.size  = slave_cb.arsize;
+    tx.addr.burst = slave_cb.arburst;
+    tx.addr.lock  = slave_cb.arlock;
+    tx.addr.cache = slave_cb.arcache;
+    tx.addr.prot  = slave_cb.arprot;
+    slave_cb.arready <= 1'b0;
   endtask
 
   task slave_rdata (input tx_t tx, input int i);
