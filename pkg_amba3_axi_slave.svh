@@ -156,7 +156,7 @@ class amba3_axi_slave_t
   virtual task write (input tx_t tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
       int upper, lower;
-      addr_t addr = tx.get_addr(i, upper, lower);
+      addr_t addr = tx.beat(i, upper, lower);
 
       item_t item = '{data: tx.data[i].data, strb:tx.data[i].strb};
       if (tx.addr.burst == FIXED) begin
@@ -172,7 +172,7 @@ class amba3_axi_slave_t
   virtual task read (input tx_t tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
       int upper, lower;
-      addr_t addr = tx.get_addr(i, upper, lower);
+      addr_t addr = tx.beat(i, upper, lower);
 
       item_t item;
       if (tx.addr.burst == FIXED) begin
@@ -198,7 +198,7 @@ class amba3_axi_slave_t
     data_t merged = '0;
     foreach (item.strb [i]) begin
       data_t bytes = (item.strb[i] ? item.data : data);
-      merged |= ((bytes >> (i * 8)) & 8'hff) << (i * 8);
+      merged |= ((bytes >> (i * 8)) & 8'hFF) << (i * 8);
     end
     return merged;
   endfunction

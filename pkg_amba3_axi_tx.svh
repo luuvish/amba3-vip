@@ -77,7 +77,7 @@ class amba3_axi_tx_t
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
 
-  virtual function addr_t get_addr (int i, output int upper, output int lower);
+  virtual function addr_t beat (int i, output int upper, output int lower);
     int beat_base    = this.addr.size;
     int number_bytes = 1 << beat_base;
     int burst_length = this.addr.len + 1;
@@ -111,8 +111,34 @@ class amba3_axi_tx_t
     return address_n;
   endfunction
 
-  virtual function strb_t set_strb (strb_t strb, int upper, int lower);
-    return ((strb >> lower) & ((1 << (upper - lower)) - 1)) << lower;
+  virtual function void random (mode_t mode = WRITE);
+    this.mode       = mode;
+    this.txid       = $urandom_range(0, (1 << TXID_SIZE) - 1);
+
+    this.addr.addr  = $urandom_range(0, 'hFFFFFFFF);
+    this.addr.len   = $urandom_range(0, 'b1111);
+    this.addr.size  = $urandom_range(0, 'b111);
+    this.addr.burst = burst_type_t'($urandom_range(int'(FIXED), int'(WRAP)));
+    this.addr.lock  = NORMAL;
+    this.addr.cache = cache_attr_t'('0);
+    this.addr.prot  = NON_SECURE;
+
+    if (this.mode == WRITE) begin
+      for (int i = 0; i < this.addr.len + 1; i++) begin
+        strb_t strb = $urandom_range(0, (1 << STRB_SIZE) - 1);
+        data_t data = '0;
+        foreach (strb [i]) begin
+          if (strb[i])
+            data |= ($urandom_range(0, 'hFF) & 8'hFF) << (i * 8);
+        end
+        this.data[i] = '{
+          data: data,
+          strb: strb,
+          resp: OKAY,
+          last: (i == this.addr.len)
+        };
+      end
+    end
   endfunction
 
   virtual function void report (string title = "", int tab = 0);

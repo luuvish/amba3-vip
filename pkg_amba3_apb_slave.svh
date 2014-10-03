@@ -78,7 +78,17 @@ class amba3_apb_slave_t
   virtual task start ();
     apb.slave_start();
     fork
-      listen();
+      forever begin
+        fork
+          forever begin
+            wait (apb.preset_n == 1'b0);
+            apb.slave_reset();
+            wait (apb.preset_n == 1'b1);
+            disable fork;
+          end
+          listen();
+        join
+      end
     join_none
   endtask
 

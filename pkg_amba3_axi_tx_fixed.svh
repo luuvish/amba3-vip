@@ -48,16 +48,16 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
     addr.burst == FIXED;
   }
 
-  function new (mode_t mode, addr_t addr, beat_t beat [] = {}, int size = 0);
+  function new (addr_t addr, beat_t beats [] = {}, int size = 0);
     assert(BEAT_SIZE <= DATA_SIZE);
-    assert((mode == READ ? size : beat.size) > 0);
+    assert((size | beats.size) > 0);
 
-    this.mode = mode;
+    this.mode = (size > beats.size ? READ : WRITE);
     this.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);
 
     this.addr = '{
       addr : addr,
-      len  : (mode == READ ? size : beat.size) - 1,
+      len  : (size | beats.size) - 1,
       size : BEAT_BASE,
       burst: FIXED,
       lock : NORMAL,
@@ -65,40 +65,19 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
       prot : NON_SECURE
     };
 
-    write(beat);
-
-    this.resp = OKAY;
-  endfunction
-
-  function void write (beat_t beat []);
-    foreach (beat [i]) begin
+    foreach (beats [i]) begin
       int upper, lower;
-      addr_t addr = get_addr(i, upper, lower);
+      addr_t addr = beat(i, upper, lower);
 
       this.data[i] = '{
-        data: set_data(beat[i], (upper + 1) * 8, lower * 8),
-        strb: set_strb('1, upper + 1, lower),
+        data: beats[i] << (lower * 8),
+        strb: ('1 & ((1 << (upper + 1 - lower)) - 1)) << lower,
         resp: OKAY,
         last: (i == this.addr.len)
       };
     end
-  endfunction
 
-  function void read (beat_t beat []);
-    for (int i = 0; i < this.addr.len + 1; i++) begin
-      int upper, lower;
-      addr_t addr = get_addr(i, upper, lower);
-
-      beat[i] = get_data(this.data[i].data, (upper + 1) * 8, lower * 8);
-    end
-  endfunction
-
-  function data_t set_data (beat_t beat, int upper, int lower);
-    return (beat << lower);
-  endfunction
-
-  function beat_t get_data (data_t data, int upper, int lower);
-    return ((data >> lower) & ((1 << (upper - lower)) - 1));
+    this.resp = OKAY;
   endfunction
 
 endclass

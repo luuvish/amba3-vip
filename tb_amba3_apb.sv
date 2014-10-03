@@ -123,8 +123,9 @@ module tb_amba3_apb;
   endtask
 
   task unit_test (int count);
-    addr_t[ADDR_SIZE - 1:DATA_BASE] midx;
     data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+    addr_t wr_q [$];
+
     addr_t addr;
     data_t data;
 
@@ -133,19 +134,23 @@ module tb_amba3_apb;
     end
 
     repeat (count) begin
-      midx = $urandom_range(0, 'hFFFFFFFF);
+      addr = $urandom_range(0, 'hFFFFFFFF) * (DATA_SIZE / 8);
       data = $urandom_range(0, 'hFFFFFFFF);
-      addr = midx * (DATA_SIZE / 8);
+      wr_q.push_back(addr);
+
       master.write(addr, data);
       master.ticks(random_delay());
-      mems[midx] = data;
+
+      mems[addr[ADDR_SIZE - 1:DATA_BASE]] = data;
     end
 
-    foreach (mems [midx]) begin
-      addr = midx * (DATA_SIZE / 8);
+    foreach (wr_q [i]) begin
+      addr = wr_q[i];
+
       master.read(addr, data);
       master.ticks(random_delay());
-      assert(mems[midx] == data);
+
+      assert(mems[addr[ADDR_SIZE - 1:DATA_BASE]] == data);
     end
 
     if ($test$plusargs("verbose")) begin
