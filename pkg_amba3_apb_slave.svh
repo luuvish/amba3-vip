@@ -37,7 +37,7 @@ class amba3_apb_slave_t
                     MAX_DELAY = 10
 );
 
-  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
 
   typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).slave apb_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
@@ -45,7 +45,7 @@ class amba3_apb_slave_t
 
   apb_t apb;
 
-  data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
+  data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
 
   function new (input apb_t apb);
     this.apb = apb;
@@ -91,11 +91,11 @@ class amba3_apb_slave_t
   endtask
 
   virtual task write (input addr_t addr, input data_t data);
-    mems[addr[ADDR_SIZE - 1:ADDR_BASE]] = data;
+    mems[addr[ADDR_SIZE - 1:DATA_BASE]] = data;
   endtask
 
   virtual task read (input addr_t addr, output data_t data);
-    data = mems[addr[ADDR_SIZE - 1:ADDR_BASE]];
+    data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
   endtask
 
   virtual function int random_delay ();

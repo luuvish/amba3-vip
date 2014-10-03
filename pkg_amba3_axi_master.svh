@@ -52,17 +52,19 @@ class amba3_axi_master_t
 
   function new (input axi_t axi);
     this.axi = axi;
-    this.waddr_q = new (MAX_QUEUE);
-    this.wdata_q = new (MAX_QUEUE);
-    this.raddr_q = new (MAX_QUEUE);
   endfunction
 
   virtual task listen ();
+    waddr_q = new (MAX_QUEUE);
+    wdata_q = new (MAX_QUEUE);
+    raddr_q = new (MAX_QUEUE);
+    wresp_q.delete();
+    rdata_q.delete();
+
     fork
       forever begin
         tx_t tx;
         waddr_q.get(tx);
-
         for (int i = 0; i < tx.addr.len + 1; i++) begin
           ticks(random_delay());
           axi.master_wdata(tx, i);
@@ -71,6 +73,11 @@ class amba3_axi_master_t
       end
       forever begin
         tx_t rx, tx;
+        while (wresp_q.size == 0) begin
+          while (wdata_q.try_get(tx))
+            wresp_q.push_back(tx);
+          @(axi.master_cb);
+        end
         ticks(random_delay());
         axi.master_wresp(rx);
 
@@ -107,9 +114,19 @@ class amba3_axi_master_t
   endtask
 
   virtual task start ();
-    axi.master_start();
+    axi.master_reset();
     fork
-      listen();
+      forever begin
+        fork
+          forever begin
+            wait (axi.areset_n == 1'b0);
+            axi.master_reset();
+            wait (axi.areset_n == 1'b1);
+            disable fork;
+          end
+          listen();
+        join
+      end
     join_none
   endtask
 

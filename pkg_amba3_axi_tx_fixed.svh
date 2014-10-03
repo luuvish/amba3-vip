@@ -39,21 +39,17 @@ class amba3_axi_tx_fixed_t
 )
 extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
 
-  localparam integer STRB_SIZE = DATA_SIZE / 8;
-  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
   localparam integer BEAT_BASE = $clog2(BEAT_SIZE / 8);
 
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
-  typedef logic [STRB_SIZE - 1:0] strb_t;
   typedef logic [BEAT_SIZE - 1:0] beat_t;
 
   constraint mode_c {
-    addr.burst == FIXED;
     BEAT_SIZE <= DATA_SIZE;
+    addr.burst == FIXED;
   }
 
   function new (mode_t mode, addr_t addr, beat_t beat [] = {}, int size = 0);
+    assert(BEAT_SIZE <= DATA_SIZE);
     assert((mode == READ ? size : beat.size) > 0);
 
     this.mode = mode;
@@ -62,7 +58,7 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
     this.addr = '{
       addr : addr,
       len  : (mode == READ ? size : beat.size) - 1,
-      size : $clog2(DATA_SIZE / 8),
+      size : BEAT_BASE,
       burst: FIXED,
       lock : NORMAL,
       cache: cache_attr_t'('0),
@@ -97,25 +93,8 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
     end
   endfunction
 
-  function addr_t get_addr (int i, output int upper, output int lower);
-    const int number_bytes = BEAT_SIZE / 8;
-
-    addr_t address_n = this.addr.addr;
-    int lower_byte_lane = address_n[ADDR_BASE - 1:0];
-    int upper_byte_lane = (lower_byte_lane >> BEAT_BASE) << BEAT_BASE;
-    upper_byte_lane += (number_bytes - 1);
-
-    upper = upper_byte_lane;
-    lower = lower_byte_lane;
-    return address_n;
-  endfunction
-
   function data_t set_data (beat_t beat, int upper, int lower);
     return (beat << lower);
-  endfunction
-
-  function strb_t set_strb (strb_t strb, int upper, int lower);
-    return ((strb >> lower) & ((1 << (upper - lower)) - 1)) << lower;
   endfunction
 
   function beat_t get_data (data_t data, int upper, int lower);

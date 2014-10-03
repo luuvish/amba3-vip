@@ -38,7 +38,7 @@ module tb_amba3_apb;
 
   localparam integer PCLK_PERIOD = 10; // 100Mhz -> 10ns
   localparam integer ADDR_SIZE = 32, DATA_SIZE = 32;
-  localparam integer ADDR_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
 
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
@@ -123,8 +123,8 @@ module tb_amba3_apb;
   endtask
 
   task unit_test (int count);
-    addr_t[ADDR_SIZE - 1:ADDR_BASE] midx;
-    data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
+    addr_t[ADDR_SIZE - 1:DATA_BASE] midx;
+    data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
     addr_t addr;
     data_t data;
 

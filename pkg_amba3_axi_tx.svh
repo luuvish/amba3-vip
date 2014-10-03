@@ -38,6 +38,11 @@ class amba3_axi_tx_t
 );
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
+  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+
+  typedef logic [ADDR_SIZE - 1:0] addr_t;
+  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [STRB_SIZE - 1:0] strb_t;
 
   typedef enum logic {READ, WRITE} mode_t;
 
@@ -71,6 +76,44 @@ class amba3_axi_tx_t
     data.size == addr.len + 1;
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
+
+  virtual function addr_t get_addr (int i, output int upper, output int lower);
+    int beat_base    = this.addr.size;
+    int number_bytes = 1 << beat_base;
+    int burst_length = this.addr.len + 1;
+    int burst_totals = number_bytes * burst_length;
+
+    addr_t wrap_boundary = (this.addr.addr / burst_totals) * burst_totals;
+    addr_t address_n;
+    int lower_byte_lane;
+    int upper_byte_lane;
+
+    address_n = this.addr.addr;
+    if (this.addr.burst != FIXED) begin
+      if (i != 0)
+        address_n = (address_n >> beat_base) << beat_base;
+      address_n += i * number_bytes;
+    end
+    if (this.addr.burst == WRAP) begin
+      if (address_n >= wrap_boundary + burst_totals)
+        address_n -= burst_totals;
+    end
+
+    lower_byte_lane = address_n & ((1 << DATA_BASE) - 1);
+
+    upper_byte_lane = lower_byte_lane;
+    if (this.addr.burst == FIXED || i == 0)
+      upper_byte_lane = (upper_byte_lane >> beat_base) << beat_base;
+    upper_byte_lane += (number_bytes - 1);
+
+    upper = upper_byte_lane;
+    lower = lower_byte_lane;
+    return address_n;
+  endfunction
+
+  virtual function strb_t set_strb (strb_t strb, int upper, int lower);
+    return ((strb >> lower) & ((1 << (upper - lower)) - 1)) << lower;
+  endfunction
 
   virtual function void report (string title = "", int tab = 0);
     string tabs = tab == 0 ? "" : {(tab){" "}};

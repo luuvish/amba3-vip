@@ -40,28 +40,34 @@ class amba3_axi_slave_t
 );
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
-  localparam integer ADDR_BASE = $clog2(STRB_SIZE);
+  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
 
   typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).slave axi_t;
   typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [STRB_SIZE - 1:0] strb_t;
+
+  typedef struct {data_t data; strb_t strb;} item_t;
 
   axi_t axi;
 
   mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
   tx_t wdata_q [$];
 
-  data_t mems [addr_t[ADDR_SIZE - 1:ADDR_BASE]];
+  item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
+  data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
 
   function new (input axi_t axi);
     this.axi = axi;
-    this.waddr_q = new (MAX_QUEUE);
-    this.wresp_q = new (MAX_QUEUE);
-    this.raddr_q = new (MAX_QUEUE);
   endfunction
 
   virtual task listen ();
+    waddr_q = new (MAX_QUEUE);
+    wresp_q = new (MAX_QUEUE);
+    raddr_q = new (MAX_QUEUE);
+    wdata_q.delete();
+
     fork
       forever begin
         tx_t rx;
@@ -73,6 +79,11 @@ class amba3_axi_slave_t
       end
       forever begin
         tx_t rx, tx;
+        while (wdata_q.size == 0) begin
+          while (waddr_q.try_get(tx))
+            wdata_q.push_back(tx);
+          @(axi.slave_cb);
+        end
         ticks(random_delay());
         axi.slave_wdata(rx);
 
@@ -112,16 +123,25 @@ class amba3_axi_slave_t
         for (int i = 0; i < tx.addr.len + 1; i++) begin
           ticks(random_delay());
           axi.slave_rdata(tx, i);
-          //tx.report($sformatf("@%0dns rdata", $time));
         end
       end
     join_none
   endtask
 
   virtual task start ();
-    axi.slave_start();
+    axi.slave_reset();
     fork
-      listen();
+      forever begin
+        fork
+          forever begin
+            wait (axi.areset_n == 1'b0);
+            axi.slave_reset();
+            wait (axi.areset_n == 1'b1);
+            disable fork;
+          end
+          listen();
+        join
+      end
     join_none
   endtask
 
@@ -134,24 +154,34 @@ class amba3_axi_slave_t
   endtask
 
   virtual task write (input tx_t tx);
-    if (tx.addr.burst == FIXED) begin
-      mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE]] = tx.data[tx.addr.len].data;
-    end
-    if (tx.addr.burst == INCR) begin
-      for (int i = 0; i < tx.addr.len + 1; i++) begin
-        mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE] + i] = tx.data[i].data;
+    for (int i = 0; i < tx.addr.len + 1; i++) begin
+      int upper, lower;
+      addr_t addr = tx.get_addr(i, upper, lower);
+
+      item_t item = '{data: tx.data[i].data, strb:tx.data[i].strb};
+      if (tx.addr.burst == FIXED) begin
+        fifo[addr[ADDR_SIZE - 1:DATA_BASE]].push_back(item);
+      end
+      else begin
+        data_t data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
+        mems[addr[ADDR_SIZE - 1:DATA_BASE]] = get_data(data, item);
       end
     end
   endtask
 
   virtual task read (input tx_t tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
+      int upper, lower;
+      addr_t addr = tx.get_addr(i, upper, lower);
+
+      item_t item;
       if (tx.addr.burst == FIXED) begin
-        tx.data[i].data = mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE]];
+        item = fifo[addr[ADDR_SIZE - 1:DATA_BASE]].pop_front();
       end
-      if (tx.addr.burst == INCR) begin
-        tx.data[i].data = mems[tx.addr.addr[ADDR_SIZE - 1:ADDR_BASE] + i];
+      else begin
+        item = '{data: mems[addr[ADDR_SIZE - 1:DATA_BASE]], strb: '1};
       end
+      tx.data[i].data = item.data;
     end
   endtask
 
@@ -162,6 +192,15 @@ class amba3_axi_slave_t
     tx = q[qi[0]];
     if (remove) q.delete(qi[0]);
     return tx;
+  endfunction
+
+  virtual function data_t get_data (data_t data, item_t item);
+    data_t merged = '0;
+    foreach (item.strb [i]) begin
+      data_t bytes = (item.strb[i] ? item.data : data);
+      merged |= ((bytes >> (i * 8)) & 8'hff) << (i * 8);
+    end
+    return merged;
   endfunction
 
   virtual function int random_delay ();
