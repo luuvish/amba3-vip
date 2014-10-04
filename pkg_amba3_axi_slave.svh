@@ -49,13 +49,13 @@ class amba3_axi_slave_t #(
   typedef logic [STRB_SIZE - 1:0] strb_t;
   typedef struct {data_t data; strb_t strb;} item_t;
 
-  axi_t axi;
+  protected axi_t axi;
 
-  mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
-  tx_t wdata_q [$], paddr_q [$], pdata_q [$];
+  local mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
+  local tx_t wdata_q [$], paddr_q [$], pdata_q [$];
 
-  item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
-  data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+  local item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
+  local data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
 
   function new (input axi_t axi);
     this.axi = axi;
@@ -85,104 +85,23 @@ class amba3_axi_slave_t #(
       end
       forever begin
         tx_t tx;
-
-        ticks(random_delay());
-        axi.slave_waddr(tx);
-        waddr_q.put(tx);
-      end
-      forever begin
-        tx_t rx, tx;
-
-        if (PRE_WDATA == 0) begin
-          wait_q(wdata_q, waddr_q);
-          ticks(random_delay());
-          axi.slave_wdata(rx);
-
-          fill_q(wdata_q, waddr_q);
-          tx = find_tx(wdata_q, rx.txid);
-
-          assert(tx != null);
-          if (tx != null) begin
-            assert(rx.data[0].last == (tx.data.size == tx.addr.len));
-            tx.data[tx.data.size] = rx.data[0];
-            if (rx.data[0].last == 1'b1) begin
-              remove_tx(wdata_q, rx.txid);
-              wresp_q.put(tx);
-            end
-          end
-        end
-
-        if (PRE_WDATA == 1) begin
-          ticks(random_delay());
-          axi.slave_wdata(rx);
-
-          tx = find_tx(wdata_q, rx.txid);
-
-          if (tx != null) begin
-            tx.data[tx.data.size] = rx.data[0];
-          end
-          else begin
-            tx = rx;
-            wdata_q.push_back(tx);
-          end
-          if (rx.data[0].last == 1'b1) begin
-            remove_tx(wdata_q, rx.txid);
-            wresp_q.put(tx);
-          end
-        end
-      end
-      forever begin
-        tx_t rx, tx;
-
-        if (PRE_WDATA == 0) begin
-          wresp_q.get(tx);
-          ticks(random_delay());
-          write(tx);
-          axi.slave_wresp(tx);
-        end
-
-        if (PRE_WDATA == 1) begin
-          while (paddr_q.size == 0 || pdata_q.size == 0) begin
-            fill_q(paddr_q, waddr_q);
-            fill_q(pdata_q, wresp_q);
-            ticks(1);
-          end
-
-          foreach (pdata_q [i]) begin
-            tx = pdata_q [i];
-            rx = find_tx(paddr_q, tx.txid);
-
-            if (rx != null) begin
-              tx.mode = rx.mode;
-              tx.addr = rx.addr;
-              assert(tx.data[tx.addr.len].last == (tx.data.size == tx.addr.len + 1));
-              remove_tx(paddr_q, tx.txid);
-              pdata_q.delete(i);
-
-              ticks(random_delay());
-              write(tx);
-              axi.slave_wresp(tx);
-              break;
-            end
-          end
-        end
+        waddr(tx);
       end
       forever begin
         tx_t tx;
-
-        ticks(random_delay());
-        axi.slave_raddr(tx);
-        raddr_q.put(tx);
+        wdata(tx);
       end
       forever begin
         tx_t tx;
-
-        raddr_q.get(tx);
-        read(tx);
-        for (int i = 0; i < tx.addr.len + 1; i++) begin
-          ticks(random_delay());
-          axi.slave_rdata(tx, i);
-        end
+        wresp(tx);
+      end
+      forever begin
+        tx_t tx;
+        raddr(tx);
+      end
+      forever begin
+        tx_t tx;
+        rdata(tx);
       end
     join_any
     disable fork;
@@ -196,7 +115,107 @@ class amba3_axi_slave_t #(
     axi.slave_ticks(tick);
   endtask
 
-  virtual task write (input tx_t tx);
+  virtual protected task waddr (output tx_t tx);
+    ticks(random_delay());
+    axi.slave_waddr(tx);
+    waddr_q.put(tx);
+  endtask
+
+  virtual protected task wdata (output tx_t tx);
+    tx_t rx;
+
+    if (PRE_WDATA == 0) begin
+      wait_q(wdata_q, waddr_q);
+      ticks(random_delay());
+      axi.slave_wdata(rx);
+
+      fill_q(wdata_q, waddr_q);
+      tx = find_tx(wdata_q, rx.txid);
+
+      assert(tx != null);
+      if (tx != null) begin
+        assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+        tx.data[tx.data.size] = rx.data[0];
+        if (rx.data[0].last == 1'b1) begin
+          remove_tx(wdata_q, rx.txid);
+          wresp_q.put(tx);
+        end
+      end
+    end
+
+    if (PRE_WDATA == 1) begin
+      ticks(random_delay());
+      axi.slave_wdata(rx);
+
+      tx = find_tx(wdata_q, rx.txid);
+
+      if (tx != null) begin
+        tx.data[tx.data.size] = rx.data[0];
+      end
+      else begin
+        tx = rx;
+        wdata_q.push_back(tx);
+      end
+      if (rx.data[0].last == 1'b1) begin
+        remove_tx(wdata_q, rx.txid);
+        wresp_q.put(tx);
+      end
+    end
+  endtask
+
+  virtual protected task wresp (output tx_t tx);
+    tx_t rx;
+
+    if (PRE_WDATA == 0) begin
+      wresp_q.get(tx);
+      ticks(random_delay());
+      write(tx);
+      axi.slave_wresp(tx);
+    end
+
+    if (PRE_WDATA == 1) begin
+      while (paddr_q.size == 0 || pdata_q.size == 0) begin
+        fill_q(paddr_q, waddr_q);
+        fill_q(pdata_q, wresp_q);
+        ticks(1);
+      end
+
+      foreach (pdata_q [i]) begin
+        tx = pdata_q [i];
+        rx = find_tx(paddr_q, tx.txid);
+
+        if (rx != null) begin
+          tx.mode = rx.mode;
+          tx.addr = rx.addr;
+          assert(tx.data[tx.addr.len].last == (tx.data.size == tx.addr.len + 1));
+          remove_tx(paddr_q, tx.txid);
+          pdata_q.delete(i);
+
+          ticks(random_delay());
+          write(tx);
+          axi.slave_wresp(tx);
+          break;
+        end
+      end
+    end
+  endtask
+
+  virtual protected task raddr (output tx_t tx);
+    ticks(random_delay());
+    axi.slave_raddr(tx);
+    raddr_q.put(tx);
+  endtask
+
+  virtual protected task rdata (output tx_t tx);
+    raddr_q.get(tx);
+    read(tx);
+    for (int i = 0; i < tx.addr.len + 1; i++) begin
+      ticks(random_delay());
+      axi.slave_rdata(tx, i);
+    end
+  endtask
+
+  virtual protected task write (input tx_t tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
       int upper, lower;
       addr_t addr = tx.beat(i, upper, lower);
@@ -212,7 +231,7 @@ class amba3_axi_slave_t #(
     end
   endtask
 
-  virtual task read (input tx_t tx);
+  virtual protected task read (input tx_t tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
       int upper, lower;
       addr_t addr = tx.beat(i, upper, lower);
@@ -228,7 +247,7 @@ class amba3_axi_slave_t #(
     end
   endtask
 
-  virtual function data_t get_data (input data_t data, item_t item);
+  virtual protected function data_t get_data (input data_t data, item_t item);
     data_t merged = '0;
     foreach (item.strb [i]) begin
       data_t bytes = (item.strb[i] ? item.data : data);
@@ -237,32 +256,32 @@ class amba3_axi_slave_t #(
     return merged;
   endfunction
 
-  virtual task wait_q (ref tx_t q [$], mailbox #(tx_t) m);
+  virtual protected task wait_q (ref tx_t q [$], mailbox #(tx_t) m);
     while (q.size == 0) begin
       fill_q(q, m);
       ticks(1);
     end
   endtask
 
-  virtual function void fill_q (ref tx_t q [$], mailbox #(tx_t) m);
+  virtual protected function void fill_q (ref tx_t q [$], mailbox #(tx_t) m);
     tx_t tx;
     while (m.try_get(tx))
       q.push_back(tx);
   endfunction
 
-  virtual function tx_t find_tx (ref tx_t q [$], input int txid);
+  virtual protected function tx_t find_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
     return qi.size > 0 ? q[qi[0]] : null;
   endfunction
 
-  virtual function void remove_tx (ref tx_t q [$], input int txid);
+  virtual protected function void remove_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
     assert(qi.size > 0);
     if (qi.size > 0)
       q.delete(qi[0]);
   endfunction
 
-  virtual function int random_delay ();
+  virtual protected function int random_delay ();
     int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
     return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction

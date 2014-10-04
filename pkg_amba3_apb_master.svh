@@ -40,7 +40,7 @@ class amba3_apb_master_t #(
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
-  apb_t apb;
+  protected apb_t apb;
 
   function new (input apb_t apb);
     this.apb = apb;
@@ -68,7 +68,7 @@ class amba3_apb_master_t #(
     apb.master_read(addr, data);
   endtask
 
-  virtual function int random_delay ();
+  virtual protected function int random_delay ();
     int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
     return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction

@@ -42,9 +42,9 @@ class amba3_apb_slave_t #(
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
 
-  apb_t apb;
+  protected apb_t apb;
 
-  data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+  local data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
 
   function new (input apb_t apb);
     this.apb = apb;
@@ -106,7 +106,7 @@ class amba3_apb_slave_t #(
     data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
   endtask
 
-  virtual function int random_delay ();
+  virtual protected function int random_delay ();
     int zero_delay = MAX_DELAY == 0 || $urandom_range(0, 1);
     return zero_delay ? 0 : $urandom_range(1, MAX_DELAY);
   endfunction
