@@ -30,8 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_axi_tx_incr_t
-#(
+class amba3_axi_tx_incr_t #(
   parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32,
@@ -48,7 +47,7 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
     addr.burst == INCR;
   }
 
-  function new (addr_t addr, beat_t beats [] = {}, int size = 0);
+  function new (input addr_t addr, beat_t beats [] = {}, int size = 0);
     assert(BEAT_SIZE <= DATA_SIZE);
     assert((size | beats.size) > 0);
 

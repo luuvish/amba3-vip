@@ -30,13 +30,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_axi_slave_t
-#(
+class amba3_axi_slave_t #(
   parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32,
                     MAX_DELAY = 10,
-                    MAX_QUEUE = 10
+                    MAX_QUEUE = 10,
+                    PRE_WDATA = 1
 );
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
@@ -52,6 +52,7 @@ class amba3_axi_slave_t
   axi_t axi;
 
   mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
+  tx_t wdata_q [$], paddr_q [$], pdata_q [$];
 
   item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
   data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
@@ -64,66 +65,114 @@ class amba3_axi_slave_t
     clear();
     fork
       forever begin
-        fork
-          reset();
-          listen();
-        join
+        listen();
       end
     join_none
   endtask
 
-  virtual task reset ();
-    axi.slave_reset();
-  endtask
-
   virtual task listen ();
-    tx_t wdata_q [$];
-
     waddr_q = new (MAX_QUEUE);
     wresp_q = new (MAX_QUEUE);
     raddr_q = new (MAX_QUEUE);
+    wdata_q.delete();
+    paddr_q.delete();
+    pdata_q.delete();
 
-    fork
+    fork : loop
+      begin
+        axi.slave_reset();
+        disable loop;
+      end
       forever begin
-        tx_t rx;
+        tx_t tx;
 
-        wait (axi.slave_cb.awvalid == 1'b1);
         ticks(random_delay());
-        axi.slave_waddr(rx);
-        waddr_q.put(rx);
+        axi.slave_waddr(tx);
+        waddr_q.put(tx);
       end
       forever begin
         tx_t rx, tx;
 
-        wait_q(wdata_q, waddr_q);
-        ticks(random_delay());
-        axi.slave_wdata(rx);
+        if (PRE_WDATA == 0) begin
+          wait_q(wdata_q, waddr_q);
+          ticks(random_delay());
+          axi.slave_wdata(rx);
 
-        fill_q(wdata_q, waddr_q);
-        tx = find_tx(wdata_q, rx.txid);
+          fill_q(wdata_q, waddr_q);
+          tx = find_tx(wdata_q, rx.txid);
 
-        assert(rx.data[0].last == (tx.data.size == tx.addr.len));
-        tx.data[tx.data.size] = rx.data[0];
-        if (rx.data[0].last == 1'b1) begin
-          remove_tx(wdata_q, rx.txid);
-          wresp_q.put(tx);
+          assert(tx != null);
+          if (tx != null) begin
+            assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+            tx.data[tx.data.size] = rx.data[0];
+            if (rx.data[0].last == 1'b1) begin
+              remove_tx(wdata_q, rx.txid);
+              wresp_q.put(tx);
+            end
+          end
+        end
+
+        if (PRE_WDATA == 1) begin
+          ticks(random_delay());
+          axi.slave_wdata(rx);
+
+          tx = find_tx(wdata_q, rx.txid);
+
+          if (tx != null) begin
+            tx.data[tx.data.size] = rx.data[0];
+          end
+          else begin
+            tx = rx;
+            wdata_q.push_back(tx);
+          end
+          if (rx.data[0].last == 1'b1) begin
+            remove_tx(wdata_q, rx.txid);
+            wresp_q.put(tx);
+          end
+        end
+      end
+      forever begin
+        tx_t rx, tx;
+
+        if (PRE_WDATA == 0) begin
+          wresp_q.get(tx);
+          ticks(random_delay());
+          write(tx);
+          axi.slave_wresp(tx);
+        end
+
+        if (PRE_WDATA == 1) begin
+          while (paddr_q.size == 0 || pdata_q.size == 0) begin
+            fill_q(paddr_q, waddr_q);
+            fill_q(pdata_q, wresp_q);
+            ticks(1);
+          end
+
+          foreach (pdata_q [i]) begin
+            tx = pdata_q [i];
+            rx = find_tx(paddr_q, tx.txid);
+
+            if (rx != null) begin
+              tx.mode = rx.mode;
+              tx.addr = rx.addr;
+              assert(tx.data[tx.addr.len].last == (tx.data.size == tx.addr.len + 1));
+              remove_tx(paddr_q, tx.txid);
+              pdata_q.delete(i);
+
+              ticks(random_delay());
+              write(tx);
+              axi.slave_wresp(tx);
+              break;
+            end
+          end
         end
       end
       forever begin
         tx_t tx;
 
-        wresp_q.get(tx);
         ticks(random_delay());
-        write(tx);
-        axi.slave_wresp(tx);
-      end
-      forever begin
-        tx_t rx;
-
-        wait (axi.slave_cb.arvalid == 1'b1);
-        ticks(random_delay());
-        axi.slave_raddr(rx);
-        raddr_q.put(rx);
+        axi.slave_raddr(tx);
+        raddr_q.put(tx);
       end
       forever begin
         tx_t tx;
@@ -135,7 +184,8 @@ class amba3_axi_slave_t
           axi.slave_rdata(tx, i);
         end
       end
-    join_none
+    join_any
+    disable fork;
   endtask
 
   virtual task clear ();
@@ -178,7 +228,7 @@ class amba3_axi_slave_t
     end
   endtask
 
-  virtual function data_t get_data (data_t data, item_t item);
+  virtual function data_t get_data (input data_t data, item_t item);
     data_t merged = '0;
     foreach (item.strb [i]) begin
       data_t bytes = (item.strb[i] ? item.data : data);
@@ -202,14 +252,14 @@ class amba3_axi_slave_t
 
   virtual function tx_t find_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
-    assert(qi.size > 0);
-    return q[qi[0]];
+    return qi.size > 0 ? q[qi[0]] : null;
   endfunction
 
   virtual function void remove_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
     assert(qi.size > 0);
-    q.delete(qi[0]);
+    if (qi.size > 0)
+      q.delete(qi[0]);
   endfunction
 
   virtual function int random_delay ();

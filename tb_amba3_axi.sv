@@ -77,14 +77,14 @@ module tb_amba3_axi;
 
     master.start();
     slave.start();
-    repeat (100) @(posedge aclk);
+    master.ticks(100);
 
     if (count > 0)
       unit_test(count);
     else
       example();
 
-    repeat (100) @(posedge aclk);
+    master.ticks(100);
     $finish;
   end
 

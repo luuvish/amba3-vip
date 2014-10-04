@@ -30,8 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_apb_slave_t
-#(
+class amba3_apb_slave_t #(
   parameter integer ADDR_SIZE = 32,
                     DATA_SIZE = 32,
                     MAX_DELAY = 10
@@ -55,40 +54,40 @@ class amba3_apb_slave_t
     clear();
     fork
       forever begin
-        fork
-          reset();
-          listen();
-        join
+        listen();
       end
     join_none
   endtask
 
-  virtual task reset ();
-    apb.slave_reset();
-  endtask
-
   virtual task listen ();
-    forever begin
-      wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
-
-      apb.slave_cb.pready <= 1'b0;
-      ticks(random_delay());
-
-      if (apb.slave_cb.pwrite == 1'b1) begin
-        write(apb.slave_cb.paddr, apb.slave_cb.pwdata);
-        apb.slave_cb.pready <= 1'b1;
+    fork : loop
+      begin
+        apb.slave_reset();
+        disable loop;
       end
-      if (apb.slave_cb.pwrite == 1'b0) begin
-        data_t data;
-        read(apb.slave_cb.paddr, data);
-        apb.slave_cb.pready <= 1'b1;
-        apb.slave_cb.prdata <= data;
-      end
-      @(apb.slave_cb);
+      forever begin
+        wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b0);
 
-      wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
-      apb.slave_cb.pready <= $urandom_range(0, 1);
-    end
+        apb.slave_cb.pready <= 1'b0;
+        ticks(random_delay());
+
+        if (apb.slave_cb.pwrite == 1'b1) begin
+          write(apb.slave_cb.paddr, apb.slave_cb.pwdata);
+          apb.slave_cb.pready <= 1'b1;
+        end
+        if (apb.slave_cb.pwrite == 1'b0) begin
+          data_t data;
+          read(apb.slave_cb.paddr, data);
+          apb.slave_cb.pready <= 1'b1;
+          apb.slave_cb.prdata <= data;
+        end
+        @(apb.slave_cb);
+
+        wait (apb.slave_cb.psel == 1'b1 && apb.slave_cb.penable == 1'b1);
+        apb.slave_cb.pready <= $urandom_range(0, 1);
+      end
+    join_any
+    disable fork;
   endtask
 
   virtual task clear ();

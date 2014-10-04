@@ -30,8 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_apb_master_t
-#(
+class amba3_apb_master_t #(
   parameter integer ADDR_SIZE = 32,
                     DATA_SIZE = 32,
                     MAX_DELAY = 10
@@ -49,10 +48,6 @@ class amba3_apb_master_t
 
   virtual task start ();
     apb.master_start();
-  endtask
-
-  virtual task reset ();
-    apb.master_reset();
   endtask
 
   virtual task clear ();

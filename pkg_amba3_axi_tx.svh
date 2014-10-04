@@ -30,8 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_axi_tx_t
-#(
+class amba3_axi_tx_t #(
   parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
                     DATA_SIZE = 32
@@ -44,7 +43,7 @@ class amba3_axi_tx_t
   typedef logic [DATA_SIZE - 1:0] data_t;
   typedef logic [STRB_SIZE - 1:0] strb_t;
 
-  typedef enum logic {READ, WRITE} mode_t;
+  typedef enum logic [1:0] {READ, WRITE, DATA, RESP} mode_t;
 
   mode_t                  mode;
   logic [TXID_SIZE - 1:0] txid;
@@ -77,7 +76,7 @@ class amba3_axi_tx_t
     resp inside {OKAY, EXOKAY, SLVERR, DECERR};
   }
 
-  virtual function addr_t beat (int i, output int upper, output int lower);
+  virtual function addr_t beat (input int i, output int upper, lower);
     int beat_base    = this.addr.size;
     int number_bytes = 1 << beat_base;
     int burst_length = this.addr.len + 1;
@@ -111,7 +110,7 @@ class amba3_axi_tx_t
     return address_n;
   endfunction
 
-  virtual function void random (mode_t mode = WRITE);
+  virtual function void random (input mode_t mode = WRITE);
     this.mode       = mode;
     this.txid       = $urandom_range(0, (1 << TXID_SIZE) - 1);
 
@@ -146,41 +145,55 @@ class amba3_axi_tx_t
 
     if (title != "") $display("%s%s", tabs, title);
 
-    $display("%s  mode    : %s", tabs, mode.name);
+    $display("%s  mode     : %s", tabs, mode.name);
 
     if (mode == READ) begin
-      $display("%s  arid    : %0d", tabs, txid);
-      $display("%s  araddr  : %x",  tabs, addr.addr);
-      $display("%s  arlen   : %0d", tabs, addr.len);
-      $display("%s  arsize  : %0d", tabs, addr.size);
-      $display("%s  arburst : %0s", tabs, addr.burst.name);
-      $display("%s  arlock  : %0s", tabs, addr.lock.name);
-      $display("%s  arcache : %0x", tabs, addr.cache);
-      $display("%s  arprot  : %0x", tabs, addr.prot);
+      $display("%s  arid     : %0d", tabs, txid);
+      $display("%s  araddr   : %x",  tabs, addr.addr);
+      $display("%s  arlen    : %0d", tabs, addr.len);
+      $display("%s  arsize   : %0d", tabs, addr.size);
+      $display("%s  arburst  : %0s", tabs, addr.burst.name);
+      $display("%s  arlock   : %0s", tabs, addr.lock.name);
+      $display("%s  arcache  : %0x", tabs, addr.cache);
+      $display("%s  arprot   : %0x", tabs, addr.prot);
       foreach (data [i]) begin
-        $display("%s  rid  [%02d] : %0d", tabs, i, txid);
-        $display("%s  rdata[%02d] : %x",  tabs, i, data[i].data);
-        $display("%s  rresp[%02d] : %0s", tabs, i, data[i].resp.name);
-        $display("%s  rlast[%02d] : %x",  tabs, i, data[i].last);
+        $display("%s  rid  [%2d]: %0d", tabs, i, txid);
+        $display("%s  rdata[%2d]: %x",  tabs, i, data[i].data);
+        $display("%s  rresp[%2d]: %0s", tabs, i, data[i].resp.name);
+        $display("%s  rlast[%2d]: %x",  tabs, i, data[i].last);
       end
     end
 
     if (mode == WRITE) begin
-      $display("%s  awid    : %0d", tabs, txid);
-      $display("%s  awaddr  : %x",  tabs, addr.addr);
-      $display("%s  awlen   : %0d", tabs, addr.len);
-      $display("%s  awsize  : %0d", tabs, addr.size);
-      $display("%s  awburst : %0s", tabs, addr.burst.name);
-      $display("%s  awlock  : %0s", tabs, addr.lock.name);
-      $display("%s  awcache : %0x", tabs, addr.cache);
-      $display("%s  awprot  : %0x", tabs, addr.prot);
+      $display("%s  awid     : %0d", tabs, txid);
+      $display("%s  awaddr   : %x",  tabs, addr.addr);
+      $display("%s  awlen    : %0d", tabs, addr.len);
+      $display("%s  awsize   : %0d", tabs, addr.size);
+      $display("%s  awburst  : %0s", tabs, addr.burst.name);
+      $display("%s  awlock   : %0s", tabs, addr.lock.name);
+      $display("%s  awcache  : %0x", tabs, addr.cache);
+      $display("%s  awprot   : %0x", tabs, addr.prot);
       foreach (data [i]) begin
-        $display("%s  wid  [%02d] : %0d", tabs, i, txid);
-        $display("%s  wdata[%02d] : %x",  tabs, i, data[i].data);
-        $display("%s  wstrb[%02d] : %x",  tabs, i, data[i].strb);
-        $display("%s  wlast[%02d] : %x",  tabs, i, data[i].last);
+        $display("%s  wid  [%2d]: %0d", tabs, i, txid);
+        $display("%s  wdata[%2d]: %x",  tabs, i, data[i].data);
+        $display("%s  wstrb[%2d]: %x",  tabs, i, data[i].strb);
+        $display("%s  wlast[%2d]: %x",  tabs, i, data[i].last);
       end
-      $display("%s  bresp   : %s", tabs, resp.name);
+      $display("%s  bresp    : %0s", tabs, resp.name);
+    end
+
+    if (mode == DATA) begin
+      foreach (data [i]) begin
+        $display("%s  wid  [%2d]: %0d", tabs, i, txid);
+        $display("%s  wdata[%2d]: %x",  tabs, i, data[i].data);
+        $display("%s  wstrb[%2d]: %x",  tabs, i, data[i].strb);
+        $display("%s  wlast[%2d]: %x",  tabs, i, data[i].last);
+      end
+      $display("%s  bresp    : %0s", tabs, resp.name);
+    end
+
+    if (mode == RESP) begin
+      $display("%s  bresp    : %0s", tabs, resp.name);
     end
   endfunction
 

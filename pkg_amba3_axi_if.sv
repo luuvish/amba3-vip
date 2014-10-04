@@ -30,13 +30,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-interface amba3_axi_if (input logic aclk, input logic areset_n);
-
-  import pkg_amba3::*;
-
+interface amba3_axi_if #(
   parameter integer TXID_SIZE = 4,
                     ADDR_SIZE = 32,
-                    DATA_SIZE = 32;
+                    DATA_SIZE = 32
+) (input logic aclk, input logic areset_n);
+
+  import pkg_amba3::*;
 
   localparam integer STRB_SIZE = DATA_SIZE / 8;
 
@@ -92,22 +92,22 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
   logic                   rready;
 
   clocking master_cb @(posedge aclk);
-    output awid, awaddr, awlen, awsize, awburst, awlock, awcache, awprot;
-    output awvalid; input awready;
+    output awid, awaddr, awlen, awsize, awburst;
+    output awlock, awcache, awprot, awvalid; input awready;
     output wid, wdata, wstrb, wlast, wvalid; input wready;
     input  bid, bresp, bvalid; output bready;
-    output arid, araddr, arlen, arsize, arburst, arlock, arcache, arprot;
-    output arvalid; input arready;
+    output arid, araddr, arlen, arsize, arburst;
+    output arlock, arcache, arprot, arvalid; input arready;
     input  rid, rdata, rresp, rlast, rvalid; output rready;
   endclocking
 
   clocking slave_cb @(posedge aclk);
-    input  awid, awaddr, awlen, awsize, awburst, awlock, awcache, awprot;
-    input  awvalid; output awready;
+    input  awid, awaddr, awlen, awsize, awburst;
+    input  awlock, awcache, awprot, awvalid; output awready;
     input  wid, wdata, wstrb, wlast, wvalid; output wready;
     output bid, bresp, bvalid; input bready;
-    input  arid, araddr, arlen, arsize, arburst, arlock, arcache, arprot;
-    input  arvalid; output arready;
+    input  arid, araddr, arlen, arsize, arburst;
+    input  arlock, arcache, arprot, arvalid; output arready;
     output rid, rdata, rresp, rlast, rvalid; input rready;
   endclocking
 
@@ -126,20 +126,15 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     master_clear();
     fork
       forever begin
-        fork
-          master_reset();
-        join
+        master_reset();
       end
     join_none
   endtask
 
   task master_reset ();
-    forever begin
-      wait (areset_n == 1'b0);
-      master_clear();
-      wait (areset_n == 1'b1);
-      disable fork;
-    end
+    wait (areset_n == 1'b0);
+    master_clear();
+    wait (areset_n == 1'b1);
   endtask
 
   task master_clear ();
@@ -223,6 +218,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
     wait (master_cb.bvalid == 1'b1);
     tx = new;
+    tx.mode = tx_t::RESP;
     tx.txid = master_cb.bid;
     tx.resp = master_cb.bresp;
     master_cb.bready <= 1'b0;
@@ -258,6 +254,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
     wait (master_cb.rvalid == 1'b1);
     tx = new;
+    tx.mode         = tx_t::DATA;
     tx.txid         = master_cb.rid;
     tx.data[0].data = master_cb.rdata;
     tx.data[0].resp = master_cb.rresp;
@@ -269,20 +266,15 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
     slave_clear();
     fork
       forever begin
-        fork
-          slave_reset();
-        join
+        slave_reset();
       end
     join_none
   endtask
 
   task slave_reset ();
-    forever begin
-      wait (areset_n == 1'b0);
-      slave_clear();
-      wait (areset_n == 1'b1);
-      disable fork;
-    end
+    wait (areset_n == 1'b0);
+    slave_clear();
+    wait (areset_n == 1'b1);
   endtask
 
   task slave_clear ();
@@ -330,6 +322,7 @@ interface amba3_axi_if (input logic aclk, input logic areset_n);
 
     wait (slave_cb.wvalid == 1'b1);
     tx = new;
+    tx.mode         = tx_t::DATA;
     tx.txid         = slave_cb.wid;
     tx.data[0].data = slave_cb.wdata;
     tx.data[0].strb = slave_cb.wstrb;

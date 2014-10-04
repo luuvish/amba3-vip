@@ -30,12 +30,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-interface amba3_apb_if (input logic pclk, input logic preset_n);
+interface amba3_apb_if #(
+  parameter integer ADDR_SIZE = 32,
+                    DATA_SIZE = 32
+) (input logic pclk, input logic preset_n);
 
   import pkg_amba3::*;
-
-  parameter integer ADDR_SIZE = 32,
-                    DATA_SIZE = 32;
 
   typedef logic [ADDR_SIZE - 1:0] addr_t;
   typedef logic [DATA_SIZE - 1:0] data_t;
@@ -73,20 +73,15 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     master_clear();
     fork
       forever begin
-        fork
-          master_reset();
-        join
+        master_reset();
       end
     join_none
   endtask
 
   task master_reset ();
-    forever begin
-      wait (preset_n == 1'b0);
-      master_clear();
-      wait (preset_n == 1'b1);
-      disable fork;
-    end
+    wait (preset_n == 1'b0);
+    master_clear();
+    wait (preset_n == 1'b1);
   endtask
 
   task master_clear ();
@@ -145,44 +140,45 @@ interface amba3_apb_if (input logic pclk, input logic preset_n);
     slave_clear();
     fork
       forever begin
-        fork
-          slave_reset();
-          slave_listen();
-        join
+        slave_listen();
       end
     join_none
   endtask
 
   task slave_reset ();
-    forever begin
-      wait (preset_n == 1'b0);
-      slave_clear();
-      wait (preset_n == 1'b1);
-      disable fork;
-    end
+    wait (preset_n == 1'b0);
+    slave_clear();
+    wait (preset_n == 1'b1);
   endtask
 
   task slave_listen ();
-    forever begin
-      wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b0);
+    fork : loop
+      begin
+        slave_reset();
+        disable loop;
+      end
+      forever begin
+        wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b0);
 
-      if (slave_cb.pwrite == 1'b1) begin
-        slave_write(slave_cb.paddr, slave_cb.pwdata);
-        slave_cb.pready <= 1'b1;
+        if (slave_cb.pwrite == 1'b1) begin
+          slave_write(slave_cb.paddr, slave_cb.pwdata);
+          slave_cb.pready <= 1'b1;
+          slave_cb.prdata <= '0;
+        end
+        if (slave_cb.pwrite == 1'b0) begin
+          data_t data;
+          slave_read(slave_cb.paddr, data);
+          slave_cb.pready <= 1'b1;
+          slave_cb.prdata <= data;
+        end
+        @(slave_cb);
+
+        wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b1);
+        slave_cb.pready <= 1'b0;
         slave_cb.prdata <= '0;
       end
-      if (slave_cb.pwrite == 1'b0) begin
-        data_t data;
-        slave_read(slave_cb.paddr, data);
-        slave_cb.pready <= 1'b1;
-        slave_cb.prdata <= data;
-      end
-      @(slave_cb);
-
-      wait (slave_cb.psel == 1'b1 && slave_cb.penable == 1'b1);
-      slave_cb.pready <= 1'b0;
-      slave_cb.prdata <= '0;
-    end
+    join_any
+    disable fork;
   endtask
 
   task slave_clear ();
