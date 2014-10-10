@@ -48,8 +48,8 @@ extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
   }
 
   function new (input addr_t addr, beat_t beats [] = {}, int size = 0);
-    assert(BEAT_SIZE <= DATA_SIZE);
-    assert((size | beats.size) > 0);
+    assert (BEAT_SIZE <= DATA_SIZE);
+    assert ((size | beats.size) > 0);
 
     this.mode = (size > beats.size ? READ : WRITE);
     this.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);

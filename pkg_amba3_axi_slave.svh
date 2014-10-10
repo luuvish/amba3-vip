@@ -132,9 +132,9 @@ class amba3_axi_slave_t #(
       fill_q(wdata_q, waddr_q);
       tx = find_tx(wdata_q, rx.txid);
 
-      assert(tx != null);
+      assert (tx != null);
       if (tx != null) begin
-        assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+        assert (rx.data[0].last == (tx.data.size == tx.addr.len));
         tx.data[tx.data.size] = rx.data[0];
         if (rx.data[0].last == 1'b1) begin
           remove_tx(wdata_q, rx.txid);
@@ -187,7 +187,7 @@ class amba3_axi_slave_t #(
         if (rx != null) begin
           tx.mode = rx.mode;
           tx.addr = rx.addr;
-          assert(tx.data[tx.addr.len].last == (tx.data.size == tx.addr.len + 1));
+          assert (tx.data[tx.addr.len].last == (tx.data.size == tx.addr.len + 1));
           remove_tx(paddr_q, tx.txid);
           pdata_q.delete(i);
 
@@ -276,7 +276,7 @@ class amba3_axi_slave_t #(
 
   virtual protected function void remove_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
-    assert(qi.size > 0);
+    assert (qi.size > 0);
     if (qi.size > 0)
       q.delete(qi[0]);
   endfunction

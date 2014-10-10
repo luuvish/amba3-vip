@@ -101,21 +101,21 @@ module tb_amba3_apb;
     master.write('h0140, 'h0000001C);
     master.ticks(random_delay());
 
-    master.read('h0040, data); assert(data == 'h80003333);
+    master.read('h0040, data); assert (data == 'h80003333);
     master.ticks(random_delay());
-    master.read('h0140, data); assert(data == 'h0000001C);
+    master.read('h0140, data); assert (data == 'h0000001C);
     master.ticks(random_delay());
-    master.read('h0800, data); assert(data == 'h00040000);
+    master.read('h0800, data); assert (data == 'h00040000);
     master.ticks(random_delay());
-    master.read('h0084, data); assert(data == 'h04400011);
+    master.read('h0084, data); assert (data == 'h04400011);
     master.ticks(random_delay());
 
     master.write('h0040, 'h12345678);
     master.write('h0084, 'h40506070);
     master.write('h0018, 'h22446688);
-    master.read('h0018, data); assert(data == 'h22446688);
-    master.read('h0040, data); assert(data == 'h12345678);
-    master.read('h0084, data); assert(data == 'h40506070);
+    master.read('h0018, data); assert (data == 'h22446688);
+    master.read('h0040, data); assert (data == 'h12345678);
+    master.read('h0084, data); assert (data == 'h40506070);
 
     if ($test$plusargs("verbose")) begin
       $display("apb example test done");
@@ -152,7 +152,7 @@ module tb_amba3_apb;
       master.read(addr, data);
       master.ticks(random_delay());
 
-      assert(mems[addr[ADDR_SIZE - 1:DATA_BASE]] == data);
+      assert (mems[addr[ADDR_SIZE - 1:DATA_BASE]] == data);
     end
 
     if ($test$plusargs("verbose")) begin

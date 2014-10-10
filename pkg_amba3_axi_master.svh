@@ -98,10 +98,10 @@ class amba3_axi_master_t #(
   endtask
 
   virtual task write (input tx_t tx, bit resp = 1'b0);
-    bit pre_wdata = $urandom_range(0, 1);
+    bit pre_wdata = MAX_DELAY > 0 && $urandom_range(0, 1);
 
     tx.mode = tx_t::WRITE;
-    assert(tx.data.size == tx.addr.len + 1);
+    assert (tx.data.size == tx.addr.len + 1);
     ticks(random_delay());
     if (pre_wdata == 1'b1) waddr_q.put(tx);
     axi.master_waddr(tx);
@@ -141,7 +141,7 @@ class amba3_axi_master_t #(
     fill_q(wresp_q, wdata_q);
     tx = find_tx(wresp_q, rx.txid);
 
-    assert(tx != null);
+    assert (tx != null);
     if (tx != null) begin
       tx.resp = rx.resp;
       remove_tx(wresp_q, rx.txid);
@@ -159,10 +159,10 @@ class amba3_axi_master_t #(
     fill_q(rdata_q, raddr_q);
     tx = find_tx(rdata_q, rx.txid);
 
-    assert(tx != null);
+    assert (tx != null);
     if (tx != null) begin
-      assert(rx.data[0].resp == OKAY);
-      assert(rx.data[0].last == (tx.data.size == tx.addr.len));
+      assert (rx.data[0].resp == OKAY);
+      assert (rx.data[0].last == (tx.data.size == tx.addr.len));
       tx.data[tx.data.size] = rx.data[0];
       if (rx.data[0].last == 1'b1) begin
         remove_tx(rdata_q, rx.txid);
@@ -191,7 +191,7 @@ class amba3_axi_master_t #(
 
   virtual protected function void remove_tx (ref tx_t q [$], input int txid);
     int qi [$] = q.find_first_index with (item.txid == txid);
-    assert(qi.size > 0);
+    assert (qi.size > 0);
     if (qi.size > 0)
       q.delete(qi[0]);
   endfunction
