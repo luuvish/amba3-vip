@@ -31,28 +31,28 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_tx_incr_t #(
-  parameter integer TXID_SIZE = 4,
-                    ADDR_SIZE = 32,
-                    DATA_SIZE = 32,
-                    BEAT_SIZE = 32
+  parameter integer TXID_BITS = 4,
+                    ADDR_BITS = 32,
+                    DATA_BITS = 32,
+                    BEAT_BITS = 32
 )
-extends amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE);
+extends amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS);
 
-  localparam integer BEAT_BASE = $clog2(BEAT_SIZE / 8);
+  localparam integer BEAT_BASE = $clog2(BEAT_BITS / 8);
 
-  typedef logic [BEAT_SIZE - 1:0] beat_t;
+  typedef logic [BEAT_BITS - 1:0] beat_t;
 
   constraint mode_c {
-    BEAT_SIZE <= DATA_SIZE;
+    BEAT_BITS <= DATA_BITS;
     addr.burst == INCR;
   }
 
   function new (input addr_t addr, beat_t beats [] = {}, int size = 0);
-    assert (BEAT_SIZE <= DATA_SIZE);
+    assert (BEAT_BITS <= DATA_BITS);
     assert ((size | beats.size) > 0);
 
     this.mode = (size > beats.size ? READ : WRITE);
-    this.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);
+    this.txid = $urandom_range(0, (1 << TXID_BITS) - 1);
 
     this.addr = '{
       addr : addr,

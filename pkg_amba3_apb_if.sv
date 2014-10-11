@@ -31,22 +31,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 interface amba3_apb_if #(
-  parameter integer ADDR_SIZE = 32,
-                    DATA_SIZE = 32
+  parameter integer ADDR_BITS = 32,
+                    DATA_BITS = 32
 ) (input logic pclk, input logic preset_n);
 
   import pkg_amba3::*;
 
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
 
-  logic [ADDR_SIZE - 1:0] paddr;
+  logic [ADDR_BITS - 1:0] paddr;
   logic                   psel;
   logic                   penable;
   logic                   pwrite;
-  logic [DATA_SIZE - 1:0] pwdata;
+  logic [DATA_BITS - 1:0] pwdata;
   logic                   pready;
-  logic [DATA_SIZE - 1:0] prdata;
+  logic [DATA_BITS - 1:0] prdata;
 
   clocking master_cb @(posedge pclk);
     output paddr, psel, penable, pwrite, pwdata;

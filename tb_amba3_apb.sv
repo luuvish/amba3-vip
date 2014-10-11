@@ -37,18 +37,18 @@ module tb_amba3_apb;
   import pkg_amba3::*;
 
   localparam integer PCLK_PERIOD = 10; // 100Mhz -> 10ns
-  localparam integer ADDR_SIZE = 32, DATA_SIZE = 32;
-  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer ADDR_BITS = 32, DATA_BITS = 32;
+  localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
 
   logic pclk;
   logic preset_n;
 
-  amba3_apb_if #(ADDR_SIZE, DATA_SIZE) apb (pclk, preset_n);
-  amba3_apb_master_t #(ADDR_SIZE, DATA_SIZE) master = new (apb);
-  amba3_apb_slave_t #(ADDR_SIZE, DATA_SIZE) slave = new (apb);
+  amba3_apb_if #(ADDR_BITS, DATA_BITS) apb (pclk, preset_n);
+  amba3_apb_master_t #(ADDR_BITS, DATA_BITS) master = new (apb);
+  amba3_apb_slave_t #(ADDR_BITS, DATA_BITS) slave = new (apb);
 
   initial begin
     pclk = 1'b0;
@@ -123,7 +123,7 @@ module tb_amba3_apb;
   endtask
 
   task unit_test (int count);
-    data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+    data_t mems [addr_t[ADDR_BITS - 1:DATA_BASE]];
     addr_t waddr_q [$];
 
     addr_t addr;
@@ -134,14 +134,14 @@ module tb_amba3_apb;
     end
 
     repeat (count) begin
-      addr = $urandom_range(0, 'hFFFFFFFF) * (DATA_SIZE / 8);
+      addr = $urandom_range(0, 'hFFFFFFFF) * (DATA_BITS / 8);
       data = $urandom_range(0, 'hFFFFFFFF);
       waddr_q.push_back(addr);
 
       master.write(addr, data);
       master.ticks(random_delay());
 
-      mems[addr[ADDR_SIZE - 1:DATA_BASE]] = data;
+      mems[addr[ADDR_BITS - 1:DATA_BASE]] = data;
     end
 
     waddr_q.shuffle();
@@ -152,7 +152,7 @@ module tb_amba3_apb;
       master.read(addr, data);
       master.ticks(random_delay());
 
-      assert (mems[addr[ADDR_SIZE - 1:DATA_BASE]] == data);
+      assert (mems[addr[ADDR_BITS - 1:DATA_BASE]] == data);
     end
 
     if ($test$plusargs("verbose")) begin

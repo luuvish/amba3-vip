@@ -31,17 +31,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_master_t #(
-  parameter integer TXID_SIZE = 4,
-                    ADDR_SIZE = 32,
-                    DATA_SIZE = 32,
+  parameter integer TXID_BITS = 4,
+                    ADDR_BITS = 32,
+                    DATA_BITS = 32,
                     MAX_DELAY = 10,
                     MAX_QUEUE = 10
 );
 
-  typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).master axi_t;
-  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef virtual amba3_axi_if #(TXID_BITS, ADDR_BITS, DATA_BITS).master axi_t;
+  typedef amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS) tx_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
 
   protected axi_t axi;
 

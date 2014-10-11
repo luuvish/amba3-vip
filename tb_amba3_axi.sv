@@ -37,21 +37,21 @@ module tb_amba3_axi;
   import pkg_amba3::*;
 
   localparam integer ACLK_PERIOD = 2; // 500Mhz -> 2ns
-  localparam integer TXID_SIZE = 4, ADDR_SIZE = 32, DATA_SIZE = 128;
-  localparam integer STRB_SIZE = DATA_SIZE / 8;
-  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 128;
+  localparam integer STRB_BITS = DATA_BITS / 8;
+  localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
-  typedef logic [STRB_SIZE - 1:0] strb_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
+  typedef logic [STRB_BITS - 1:0] strb_t;
   typedef struct {data_t data; strb_t strb;} item_t;
 
   logic aclk;
   logic areset_n;
 
-  amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) axi (aclk, areset_n);
-  amba3_axi_master_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) master = new (axi);
-  amba3_axi_slave_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) slave = new (axi);
+  amba3_axi_if #(TXID_BITS, ADDR_BITS, DATA_BITS) axi (aclk, areset_n);
+  amba3_axi_master_t #(TXID_BITS, ADDR_BITS, DATA_BITS) master = new (axi);
+  amba3_axi_slave_t #(TXID_BITS, ADDR_BITS, DATA_BITS) slave = new (axi);
 
   initial begin
     aclk = 1'b0;
@@ -105,13 +105,13 @@ module tb_amba3_axi;
 
   task example_burst_types ();
     typedef amba3_axi_tx_fixed_t #(
-      TXID_SIZE, ADDR_SIZE, DATA_SIZE, DATA_SIZE
+      TXID_BITS, ADDR_BITS, DATA_BITS, DATA_BITS
     ) tx_t;
-    amba3_axi_tx_incr_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE,  8) incr_1b;
-    amba3_axi_tx_incr_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE, 32) incr_4b;
-    amba3_axi_tx_incr_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE, 64) incr_8b;
-    amba3_axi_tx_wrap_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE, 32) wrap_4b;
-    amba3_axi_tx_fixed_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE, 8) fixed_1b;
+    amba3_axi_tx_incr_t #(TXID_BITS, ADDR_BITS, DATA_BITS,  8) incr_1b;
+    amba3_axi_tx_incr_t #(TXID_BITS, ADDR_BITS, DATA_BITS, 32) incr_4b;
+    amba3_axi_tx_incr_t #(TXID_BITS, ADDR_BITS, DATA_BITS, 64) incr_8b;
+    amba3_axi_tx_wrap_t #(TXID_BITS, ADDR_BITS, DATA_BITS, 32) wrap_4b;
+    amba3_axi_tx_fixed_t #(TXID_BITS, ADDR_BITS, DATA_BITS, 8) fixed_1b;
 
     incr_1b  = new ('h0100, '{'h07, 'h15, 'h23, 'h31, 'h39});
     incr_4b  = new ('h0104, '{'h4739, 'h7163, 'hA395, 'h1507});
@@ -208,7 +208,7 @@ module tb_amba3_axi;
 
   task example_burst_fixed ();
     typedef amba3_axi_tx_fixed_t #(
-      TXID_SIZE, ADDR_SIZE, DATA_SIZE, DATA_SIZE
+      TXID_BITS, ADDR_BITS, DATA_BITS, DATA_BITS
     ) tx_t;
     tx_t tx [4];
 
@@ -254,7 +254,7 @@ module tb_amba3_axi;
 
   task example_burst_incr ();
     typedef amba3_axi_tx_incr_t #(
-      TXID_SIZE, ADDR_SIZE, DATA_SIZE, DATA_SIZE
+      TXID_BITS, ADDR_BITS, DATA_BITS, DATA_BITS
     ) tx_t;
     tx_t tx [4];
 
@@ -300,7 +300,7 @@ module tb_amba3_axi;
 
   task example_burst_wrap ();
     typedef amba3_axi_tx_wrap_t #(
-      TXID_SIZE, ADDR_SIZE, DATA_SIZE, 16
+      TXID_BITS, ADDR_BITS, DATA_BITS, 16
     ) tx_t;
     tx_t tx [4];
 
@@ -345,10 +345,10 @@ module tb_amba3_axi;
   endtask
 
   task unit_test (int count);
-    typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
+    typedef amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS) tx_t;
 
-    item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
-    data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+    item_t fifo [addr_t[ADDR_BITS - 1:DATA_BASE]][$];
+    data_t mems [addr_t[ADDR_BITS - 1:DATA_BASE]];
     tx_t wdata_q [$], rdata_q [$];
 
     tx_t   tx;
@@ -377,11 +377,11 @@ module tb_amba3_axi;
         item = '{data: wdata_q[i].data[l].data, strb: wdata_q[i].data[l].strb};
 
         if (wdata_q[i].addr.burst == FIXED) begin
-          fifo[addr[ADDR_SIZE - 1:DATA_BASE]].push_back(item);
+          fifo[addr[ADDR_BITS - 1:DATA_BASE]].push_back(item);
         end
         else begin
-          data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
-          mems[addr[ADDR_SIZE - 1:DATA_BASE]] = get_data(data, item);
+          data = mems[addr[ADDR_BITS - 1:DATA_BASE]];
+          mems[addr[ADDR_BITS - 1:DATA_BASE]] = get_data(data, item);
         end
       end
     end
@@ -391,7 +391,7 @@ module tb_amba3_axi;
     for (int i = 0; i < count; i++) begin
       tx = new;
       tx.mode = tx_t::READ;
-      tx.txid = $urandom_range(0, (1 << TXID_SIZE) - 1);
+      tx.txid = $urandom_range(0, (1 << TXID_BITS) - 1);
       tx.addr = wdata_q[i].addr;
       rdata_q.push_back(tx);
 
@@ -405,10 +405,10 @@ module tb_amba3_axi;
         addr = rdata_q[i].beat(l, upper, lower);
 
         if (rdata_q[i].addr.burst == FIXED) begin
-          item = fifo[addr[ADDR_SIZE - 1:DATA_BASE]].pop_front();
+          item = fifo[addr[ADDR_BITS - 1:DATA_BASE]].pop_front();
         end
         else begin
-          item = '{data: mems[addr[ADDR_SIZE - 1:DATA_BASE]], strb: strb};
+          item = '{data: mems[addr[ADDR_BITS - 1:DATA_BASE]], strb: strb};
         end
         data = get_data('0, item);
 

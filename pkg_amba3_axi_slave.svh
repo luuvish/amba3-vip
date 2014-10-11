@@ -31,22 +31,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_slave_t #(
-  parameter integer TXID_SIZE = 4,
-                    ADDR_SIZE = 32,
-                    DATA_SIZE = 32,
+  parameter integer TXID_BITS = 4,
+                    ADDR_BITS = 32,
+                    DATA_BITS = 32,
                     MAX_DELAY = 10,
                     MAX_QUEUE = 10,
                     PRE_WDATA = 1
 );
 
-  localparam integer STRB_SIZE = DATA_SIZE / 8;
-  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer STRB_BITS = DATA_BITS / 8;
+  localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 
-  typedef virtual amba3_axi_if #(TXID_SIZE, ADDR_SIZE, DATA_SIZE).slave axi_t;
-  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
-  typedef logic [STRB_SIZE - 1:0] strb_t;
+  typedef virtual amba3_axi_if #(TXID_BITS, ADDR_BITS, DATA_BITS).slave axi_t;
+  typedef amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS) tx_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
+  typedef logic [STRB_BITS - 1:0] strb_t;
   typedef struct {data_t data; strb_t strb;} item_t;
 
   protected axi_t axi;
@@ -54,8 +54,8 @@ class amba3_axi_slave_t #(
   local mailbox #(tx_t) waddr_q, wresp_q, raddr_q;
   local tx_t wdata_q [$], paddr_q [$], pdata_q [$];
 
-  local item_t fifo [addr_t[ADDR_SIZE - 1:DATA_BASE]][$];
-  local data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+  local item_t fifo [addr_t[ADDR_BITS - 1:DATA_BASE]][$];
+  local data_t mems [addr_t[ADDR_BITS - 1:DATA_BASE]];
 
   function new (input axi_t axi);
     this.axi = axi;
@@ -222,11 +222,11 @@ class amba3_axi_slave_t #(
 
       item_t item = '{data: tx.data[i].data, strb:tx.data[i].strb};
       if (tx.addr.burst == FIXED) begin
-        fifo[addr[ADDR_SIZE - 1:DATA_BASE]].push_back(item);
+        fifo[addr[ADDR_BITS - 1:DATA_BASE]].push_back(item);
       end
       else begin
-        data_t data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
-        mems[addr[ADDR_SIZE - 1:DATA_BASE]] = get_data(data, item);
+        data_t data = mems[addr[ADDR_BITS - 1:DATA_BASE]];
+        mems[addr[ADDR_BITS - 1:DATA_BASE]] = get_data(data, item);
       end
     end
   endtask
@@ -238,10 +238,10 @@ class amba3_axi_slave_t #(
 
       item_t item;
       if (tx.addr.burst == FIXED) begin
-        item = fifo[addr[ADDR_SIZE - 1:DATA_BASE]].pop_front();
+        item = fifo[addr[ADDR_BITS - 1:DATA_BASE]].pop_front();
       end
       else begin
-        item = '{data: mems[addr[ADDR_SIZE - 1:DATA_BASE]], strb: '1};
+        item = '{data: mems[addr[ADDR_BITS - 1:DATA_BASE]], strb: '1};
       end
       tx.data[i].data = item.data;
     end

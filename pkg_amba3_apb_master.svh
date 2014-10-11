@@ -31,14 +31,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_apb_master_t #(
-  parameter integer ADDR_SIZE = 32,
-                    DATA_SIZE = 32,
+  parameter integer ADDR_BITS = 32,
+                    DATA_BITS = 32,
                     MAX_DELAY = 10
 );
 
-  typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).master apb_t;
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).master apb_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
 
   protected apb_t apb;
 

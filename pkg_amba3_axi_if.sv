@@ -31,23 +31,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 interface amba3_axi_if #(
-  parameter integer TXID_SIZE = 4,
-                    ADDR_SIZE = 32,
-                    DATA_SIZE = 32
+  parameter integer TXID_BITS = 4,
+                    ADDR_BITS = 32,
+                    DATA_BITS = 32
 ) (input logic aclk, input logic areset_n);
 
   import pkg_amba3::*;
 
-  localparam integer STRB_SIZE = DATA_SIZE / 8;
+  localparam integer STRB_BITS = DATA_BITS / 8;
 
-  typedef amba3_axi_tx_t #(TXID_SIZE, ADDR_SIZE, DATA_SIZE) tx_t;
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
-  typedef logic [STRB_SIZE - 1:0] strb_t;
+  typedef amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS) tx_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
+  typedef logic [STRB_BITS - 1:0] strb_t;
 
   // write address channel signals
-  logic [TXID_SIZE - 1:0] awid;
-  logic [ADDR_SIZE - 1:0] awaddr;
+  logic [TXID_BITS - 1:0] awid;
+  logic [ADDR_BITS - 1:0] awaddr;
   logic [            3:0] awlen;
   logic [            2:0] awsize;
   burst_type_t            awburst;
@@ -58,22 +58,22 @@ interface amba3_axi_if #(
   logic                   awready;
 
   // write data channel signals
-  logic [TXID_SIZE - 1:0] wid;
-  logic [DATA_SIZE - 1:0] wdata;
-  logic [STRB_SIZE - 1:0] wstrb;
+  logic [TXID_BITS - 1:0] wid;
+  logic [DATA_BITS - 1:0] wdata;
+  logic [STRB_BITS - 1:0] wstrb;
   logic                   wlast;
   logic                   wvalid;
   logic                   wready;
 
   // write response channel signals
-  logic [TXID_SIZE - 1:0] bid;
+  logic [TXID_BITS - 1:0] bid;
   resp_type_t             bresp;
   logic                   bvalid;
   logic                   bready;
 
   // read address channel signals
-  logic [TXID_SIZE - 1:0] arid;
-  logic [ADDR_SIZE - 1:0] araddr;
+  logic [TXID_BITS - 1:0] arid;
+  logic [ADDR_BITS - 1:0] araddr;
   logic [            3:0] arlen;
   logic [            2:0] arsize;
   burst_type_t            arburst;
@@ -84,8 +84,8 @@ interface amba3_axi_if #(
   logic                   arready;
 
   // read data channel signals
-  logic [TXID_SIZE - 1:0] rid;
-  logic [DATA_SIZE - 1:0] rdata;
+  logic [TXID_BITS - 1:0] rid;
+  logic [DATA_BITS - 1:0] rdata;
   resp_type_t             rresp;
   logic                   rlast;
   logic                   rvalid;

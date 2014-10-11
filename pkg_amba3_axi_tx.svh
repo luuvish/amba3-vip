@@ -31,25 +31,25 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_tx_t #(
-  parameter integer TXID_SIZE = 4,
-                    ADDR_SIZE = 32,
-                    DATA_SIZE = 32
+  parameter integer TXID_BITS = 4,
+                    ADDR_BITS = 32,
+                    DATA_BITS = 32
 );
 
-  localparam integer STRB_SIZE = DATA_SIZE / 8;
-  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer STRB_BITS = DATA_BITS / 8;
+  localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
-  typedef logic [STRB_SIZE - 1:0] strb_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
+  typedef logic [STRB_BITS - 1:0] strb_t;
 
   typedef enum logic [1:0] {READ, WRITE, DATA, RESP} mode_t;
 
   mode_t                  mode;
-  logic [TXID_SIZE - 1:0] txid;
+  logic [TXID_BITS - 1:0] txid;
 
   struct {
-    logic [ADDR_SIZE - 1:0] addr;
+    logic [ADDR_BITS - 1:0] addr;
     logic [            3:0] len;
     logic [            2:0] size;
     burst_type_t            burst;
@@ -59,8 +59,8 @@ class amba3_axi_tx_t #(
   } addr;
 
   struct {
-    logic [DATA_SIZE - 1:0] data;
-    logic [STRB_SIZE - 1:0] strb;
+    logic [DATA_BITS - 1:0] data;
+    logic [STRB_BITS - 1:0] strb;
     resp_type_t             resp;
     logic                   last;
   } data [$:16];
@@ -112,7 +112,7 @@ class amba3_axi_tx_t #(
 
   virtual function void random (input mode_t mode = WRITE);
     this.mode       = mode;
-    this.txid       = $urandom_range(0, (1 << TXID_SIZE) - 1);
+    this.txid       = $urandom_range(0, (1 << TXID_BITS) - 1);
 
     this.addr.addr  = $urandom_range(0, 'hFFFFFFFF);
     this.addr.len   = $urandom_range(0, 'b1111);
@@ -124,7 +124,7 @@ class amba3_axi_tx_t #(
 
     if (this.mode == WRITE) begin
       for (int i = 0; i < this.addr.len + 1; i++) begin
-        strb_t strb = $urandom_range(0, (1 << STRB_SIZE) - 1);
+        strb_t strb = $urandom_range(0, (1 << STRB_BITS) - 1);
         data_t data = '0;
         foreach (strb [i]) begin
           if (strb[i])

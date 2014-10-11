@@ -31,20 +31,20 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_apb_slave_t #(
-  parameter integer ADDR_SIZE = 32,
-                    DATA_SIZE = 32,
+  parameter integer ADDR_BITS = 32,
+                    DATA_BITS = 32,
                     MAX_DELAY = 10
 );
 
-  localparam integer DATA_BASE = $clog2(DATA_SIZE / 8);
+  localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 
-  typedef virtual amba3_apb_if #(ADDR_SIZE, DATA_SIZE).slave apb_t;
-  typedef logic [ADDR_SIZE - 1:0] addr_t;
-  typedef logic [DATA_SIZE - 1:0] data_t;
+  typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).slave apb_t;
+  typedef logic [ADDR_BITS - 1:0] addr_t;
+  typedef logic [DATA_BITS - 1:0] data_t;
 
   protected apb_t apb;
 
-  local data_t mems [addr_t[ADDR_SIZE - 1:DATA_BASE]];
+  local data_t mems [addr_t[ADDR_BITS - 1:DATA_BASE]];
 
   function new (input apb_t apb);
     this.apb = apb;
@@ -99,11 +99,11 @@ class amba3_apb_slave_t #(
   endtask
 
   virtual task write (input addr_t addr, input data_t data);
-    mems[addr[ADDR_SIZE - 1:DATA_BASE]] = data;
+    mems[addr[ADDR_BITS - 1:DATA_BASE]] = data;
   endtask
 
   virtual task read (input addr_t addr, output data_t data);
-    data = mems[addr[ADDR_SIZE - 1:DATA_BASE]];
+    data = mems[addr[ADDR_BITS - 1:DATA_BASE]];
   endtask
 
   virtual protected function int random_delay ();
