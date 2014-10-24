@@ -111,15 +111,32 @@ interface amba3_axi_if #(
     output rid, rdata, rresp, rlast, rvalid; input rready;
   endclocking
 
+  clocking monitor_cb @(posedge aclk);
+    input  awid, awaddr, awlen, awsize, awburst;
+    input  awlock, awcache, awprot, awvalid, awready;
+    input  wid, wdata, wstrb, wlast, wvalid, wready;
+    input  bid, bresp, bvalid, bready;
+    input  arid, araddr, arlen, arsize, arburst;
+    input  arlock, arcache, arprot, arvalid, arready;
+    input  rid, rdata, rresp, rlast, rvalid, rready;
+  endclocking
+
   modport master (
     clocking master_cb, input areset_n,
     import master_start, master_reset, master_clear, master_ticks,
     import master_waddr, master_wdata, master_wresp, master_raddr, master_rdata
   );
+
   modport slave (
     clocking slave_cb, input areset_n,
     import slave_start, slave_reset, slave_clear, slave_ticks,
     import slave_waddr, slave_wdata, slave_wresp, slave_raddr, slave_rdata
+  );
+
+  modport monitor (
+    clocking monitor_cb, input areset_n,
+    import monitor_start, monitor_reset, monitor_clear,
+    import monitor_waddr, monitor_wdata, monitor_wresp, monitor_raddr, monitor_rdata
   );
 
   task master_start ();
@@ -374,6 +391,85 @@ interface amba3_axi_if #(
     slave_cb.rresp  <= OKAY;
     slave_cb.rlast  <= 1'b0;
     slave_cb.rvalid <= 1'b0;
+  endtask
+
+  task monitor_start ();
+    monitor_clear();
+    fork
+      forever begin
+        monitor_reset();
+      end
+    join_none
+  endtask
+
+  task monitor_reset ();
+    wait (areset_n == 1'b0);
+    monitor_clear();
+    wait (areset_n == 1'b1);
+  endtask
+
+  task monitor_clear ();
+    // this task may be exported
+  endtask
+
+  task monitor_waddr (output tx_t tx);
+    wait (monitor_cb.awvalid == 1'b1 && monitor_cb.awready == 1'b1);
+    tx = new;
+    tx.mode       = tx_t::WRITE;
+    tx.txid       = monitor_cb.awid;
+    tx.addr.addr  = monitor_cb.awaddr;
+    tx.addr.len   = monitor_cb.awlen;
+    tx.addr.size  = monitor_cb.awsize;
+    tx.addr.burst = monitor_cb.awburst;
+    tx.addr.lock  = monitor_cb.awlock;
+    tx.addr.cache = monitor_cb.awcache;
+    tx.addr.prot  = monitor_cb.awprot;
+    @(monitor_cb);
+  endtask
+
+  task monitor_wdata (output tx_t tx);
+    wait (monitor_cb.wvalid == 1'b1 && monitor_cb.wready == 1'b1);
+    tx = new;
+    tx.mode         = tx_t::DATA;
+    tx.txid         = monitor_cb.wid;
+    tx.data[0].data = monitor_cb.wdata;
+    tx.data[0].strb = monitor_cb.wstrb;
+    tx.data[0].last = monitor_cb.wlast;
+    @(monitor_cb);
+  endtask
+
+  task monitor_wresp (output tx_t tx);
+    wait (monitor_cb.bvalid == 1'b1 && monitor_cb.bready == 1'b1);
+    tx = new;
+    tx.txid = monitor_cb.bid;
+    tx.resp = monitor_cb.bresp;
+    @(monitor_cb);
+  endtask
+
+  task monitor_raddr (output tx_t tx);
+    wait (monitor_cb.arvalid == 1'b1 && monitor_cb.arready == 1'b1);
+    tx = new;
+    tx.mode       = tx_t::READ;
+    tx.txid       = monitor_cb.arid;
+    tx.addr.addr  = monitor_cb.araddr;
+    tx.addr.len   = monitor_cb.arlen;
+    tx.addr.size  = monitor_cb.arsize;
+    tx.addr.burst = monitor_cb.arburst;
+    tx.addr.lock  = monitor_cb.arlock;
+    tx.addr.cache = monitor_cb.arcache;
+    tx.addr.prot  = monitor_cb.arprot;
+    @(monitor_cb);
+  endtask
+
+  task monitor_rdata (output tx_t tx);
+    wait (monitor_cb.rvalid == 1'b1 && monitor_cb.rready == 1'b1);
+    tx = new;
+    tx.mode         = tx_t::DATA;
+    tx.txid         = monitor_cb.rid;
+    tx.data[0].data = monitor_cb.rdata;
+    tx.data[0].resp = monitor_cb.rresp;
+    tx.data[0].last = monitor_cb.rlast;
+    @(monitor_cb);
   endtask
 
 endinterface

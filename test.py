@@ -35,6 +35,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
 '''
 
+from argparse import ArgumentParser
 import os
 import subprocess
 import sys
@@ -88,12 +89,33 @@ def main():
     f.write('DEFINE worklib %s\n' % os.path.join(LIB_DIR, 'worklib'))
     f.write('DEFINE ambalib %s\n' % os.path.join(LIB_DIR, 'ambalib'))
 
-  #arguments = ['+verbose', '+waveform']
-  #arguments = ['+unittest=50', '+verbose', '+waveform']
-  arguments = ['+unittest=1000', '+verbose']
+  args = parse_args(*(sys.argv[1:] if len(sys.argv) > 1 else ['-h']))
+
+  arguments = []
+  for (k, v) in args.items():
+    if type(v) == bool:
+      arguments += ['+' + k]
+    if type(v) in (int, str):
+      arguments += ['+' + k + '=' + str(v)]
 
   test(test_vectors['worklib.tb_amba3_apb:module'], arguments)
   test(test_vectors['worklib.tb_amba3_axi:module'], arguments)
+
+
+def parse_args(*largs):
+  parser = ArgumentParser(prog='test.py', description='amba3 test', epilog='')
+
+  parser.add_argument('-v', '--verbose', help='verbose',
+    dest='verbose', action='store_true', default=False)
+  parser.add_argument('-m', '--monitor', help='monitor',
+    dest='monitor', action='store_true', default=False)
+  parser.add_argument('-w', '--waveform', help='waveform',
+    dest='waveform', action='store_true', default=False)
+  parser.add_argument('-u', '--unittest', help='unit test count',
+    dest='unittest', action='store', type=int, default=0)
+
+  args = parser.parse_args(args=largs)
+  return vars(args)
 
 
 def test(sets, args=[]):

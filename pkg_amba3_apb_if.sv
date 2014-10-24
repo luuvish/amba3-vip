@@ -58,15 +58,27 @@ interface amba3_apb_if #(
     output pready, prdata;
   endclocking
 
+  clocking monitor_cb @(posedge pclk);
+    input  paddr, psel, penable, pwrite, pwdata;
+    input  pready, prdata;
+  endclocking
+
   modport master (
     clocking master_cb, input preset_n,
     import master_start, master_reset,
     import master_clear, master_ticks, master_write, master_read
   );
+
   modport slave (
     clocking slave_cb, input preset_n,
     import slave_start, slave_reset, slave_listen,
     import slave_clear, slave_ticks, slave_write, slave_read
+  );
+
+  modport monitor (
+    clocking monitor_cb, input preset_n,
+    import monitor_start, monitor_reset, monitor_listen,
+    import monitor_clear, monitor_write, monitor_read
   );
 
   task master_start ();
@@ -196,6 +208,56 @@ interface amba3_apb_if #(
   endtask
 
   task slave_read (input addr_t addr, output data_t data);
+    // this task may be exported
+  endtask
+
+  task monitor_start ();
+    monitor_clear();
+    fork
+      forever begin
+        monitor_listen();
+      end
+    join_none
+  endtask
+
+  task monitor_reset ();
+    wait (preset_n == 1'b0);
+    monitor_clear();
+    wait (preset_n == 1'b1);
+  endtask
+
+  task monitor_listen ();
+    fork : loop
+      begin
+        monitor_reset();
+        disable loop;
+      end
+      forever begin
+        wait (monitor_cb.psel == 1'b1 && monitor_cb.penable == 1'b0);
+
+        if (monitor_cb.pwrite == 1'b1) begin
+          monitor_write(monitor_cb.paddr, monitor_cb.pwdata);
+        end
+        if (monitor_cb.pwrite == 1'b0) begin
+          monitor_read(monitor_cb.paddr, monitor_cb.prdata);
+        end
+        @(monitor_cb);
+
+        wait (monitor_cb.psel == 1'b1 && monitor_cb.penable == 1'b1);
+      end
+    join_any
+    disable fork;
+  endtask
+
+  task monitor_clear ();
+    // this task may be exported
+  endtask
+
+  task monitor_write (input addr_t addr, input data_t data);
+    // this task may be exported
+  endtask
+
+  task monitor_read (input addr_t addr, input data_t data);
     // this task may be exported
   endtask
 

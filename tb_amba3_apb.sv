@@ -49,6 +49,8 @@ module tb_amba3_apb;
   amba3_apb_if #(ADDR_BITS, DATA_BITS) apb (pclk, preset_n);
   amba3_apb_master_t #(ADDR_BITS, DATA_BITS) master = new (apb);
   amba3_apb_slave_t #(ADDR_BITS, DATA_BITS) slave = new (apb);
+  amba3_apb_monitor_t #(ADDR_BITS, DATA_BITS)
+    monitor = new (apb, "tb_amba3_apb.log");
 
   initial begin
     pclk = 1'b0;
@@ -74,6 +76,9 @@ module tb_amba3_apb;
 
     master.start();
     slave.start();
+    if ($test$plusargs("monitor")) begin
+      monitor.start();
+    end
     master.ticks(100);
 
     if (count > 0)

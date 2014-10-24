@@ -5,25 +5,41 @@ AMBA3 APB/AXI SystemVerilog model and verification
 
 ## Features
   * AMBA3 APB Protocol v1.0
-    1. Parameterize ADDR/DATA bits
-    2. interface/class tasks/functions
-    3. Randomize pready dely
+    1. parameterize ADDR/DATA bits
+    2. interface, master, slave and monitor modeling
+    3. randomize pready dely
   * AMBA3 AXI Protocol v1.0
-    1. Parameterize ADDR/DATA/ID bits
-    2. interface/class tasks/functions
-    3. Randomize ready/valid/response
-    4. Paremeterize transaction queue
-    5. Non-blocking/blocking response
+    1. parameterize ADDR/DATA/ID bits
+    2. interface, master, slave and monitor modeling
+    3. randomize ready/valid/response
+    4. paremeterize transaction queue
+    5. non-blocking/blocking response
 
 ## Requirement
-  * Python >= 2.6
+  * Python >= 2.7
   * Cadence Incisive Unified Simulator >= 10.2
 
 ## Usage
 
-```
+```bash
 make      # compile & eleboration design/testbench
 ./test.py # run unit test or test example
+```
+
+```bash
+./test.py -h
+
+usage: test.py [-h] [-v] [-m] [-w] [-u UNITTEST]
+
+amba3 test
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --verbose         verbose
+  -m, --monitor         monitor
+  -w, --waveform        waveform
+  -u UNITTEST, --unittest UNITTEST
+                        unit test count
 ```
 
 ### API example
@@ -175,12 +191,12 @@ end
 
 ## TODO
   * AMBA3 APB Protocol v1.0
-    1. monitor, assertion and signal validation
-    2. arbitor modeling
+    1. assertion and signal validation
+    2. arbiter modeling
     3. PSLVERR support
   * AMBA3 AXI Protocol v1.0
-    1. monitor, assertion and signal validation
-    2. arbitor modeling
+    1. assertion and signal validation
+    2. arbiter modeling
     3. AxLOCK support
     4. AxCACHE support
     5. AxPROT support

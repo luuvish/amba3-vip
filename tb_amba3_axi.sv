@@ -52,6 +52,8 @@ module tb_amba3_axi;
   amba3_axi_if #(TXID_BITS, ADDR_BITS, DATA_BITS) axi (aclk, areset_n);
   amba3_axi_master_t #(TXID_BITS, ADDR_BITS, DATA_BITS) master = new (axi);
   amba3_axi_slave_t #(TXID_BITS, ADDR_BITS, DATA_BITS) slave = new (axi);
+  amba3_axi_monitor_t #(TXID_BITS, ADDR_BITS, DATA_BITS)
+    monitor = new (axi, "tb_amba3_axi.log");
 
   initial begin
     aclk = 1'b0;
@@ -77,6 +79,9 @@ module tb_amba3_axi;
 
     master.start();
     slave.start();
+    if ($test$plusargs("monitor")) begin
+      monitor.start();
+    end
     master.ticks(100);
 
     if (count > 0)

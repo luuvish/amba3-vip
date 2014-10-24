@@ -59,11 +59,13 @@ package pkg_amba3;
 
   `include "pkg_amba3_apb_master.svh"
   `include "pkg_amba3_apb_slave.svh"
+  `include "pkg_amba3_apb_monitor.svh"
   `include "pkg_amba3_axi_tx.svh"
   `include "pkg_amba3_axi_tx_fixed.svh"
   `include "pkg_amba3_axi_tx_incr.svh"
   `include "pkg_amba3_axi_tx_wrap.svh"
   `include "pkg_amba3_axi_master.svh"
   `include "pkg_amba3_axi_slave.svh"
+  `include "pkg_amba3_axi_monitor.svh"
 
 endpackage
