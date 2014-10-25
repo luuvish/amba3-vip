@@ -6,11 +6,11 @@ AMBA3 APB/AXI SystemVerilog model and verification
 ## Features
   * AMBA3 APB Protocol v1.0
     1. parameterize ADDR/DATA bits
-    2. interface, master, slave and monitor modeling
+    2. interface, master, slave and monitor/checker system-verilog modeling
     3. randomize pready dely
   * AMBA3 AXI Protocol v1.0
     1. parameterize ADDR/DATA/ID bits
-    2. interface, master, slave and monitor modeling
+    2. interface, master, slave and monitor/checker system-verilog modeling
     3. randomize ready/valid/response
     4. paremeterize transaction queue
     5. non-blocking/blocking response
@@ -191,12 +191,8 @@ end
 
 ## TODO
   * AMBA3 APB Protocol v1.0
-    1. assertion and signal validation
-    2. arbiter modeling
-    3. PSLVERR support
+    1. PSLVERR support
   * AMBA3 AXI Protocol v1.0
-    1. assertion and signal validation
-    2. arbiter modeling
-    3. AxLOCK support
-    4. AxCACHE support
-    5. AxPROT support
+    1. AxLOCK support
+    2. AxCACHE support
+    3. AxPROT support
