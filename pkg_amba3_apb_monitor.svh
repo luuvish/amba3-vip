@@ -36,8 +36,6 @@ class amba3_apb_monitor_t #(
 );
 
   typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).monitor apb_t;
-  typedef logic [ADDR_BITS - 1:0] addr_t;
-  typedef logic [DATA_BITS - 1:0] data_t;
 
   protected apb_t apb;
   protected integer file;
@@ -65,17 +63,9 @@ class amba3_apb_monitor_t #(
         apb.monitor_reset();
         disable loop;
       end
-      forever begin
-        wait (apb.monitor_cb.psel == 1'b1 && apb.monitor_cb.penable == 1'b1 &&
-              apb.monitor_cb.pready == 1'b1);
-        if (apb.monitor_cb.pwrite == 1'b1) begin
-          write(apb.monitor_cb.paddr, apb.monitor_cb.pwdata);
-        end
-        if (apb.monitor_cb.pwrite == 1'b0) begin
-          read(apb.monitor_cb.paddr, apb.monitor_cb.prdata);
-        end
-        @(apb.monitor_cb);
-      end
+      forever report_write();
+      forever report_read();
+      forever check_hold();
     join_any
     disable fork;
   endtask
@@ -84,14 +74,100 @@ class amba3_apb_monitor_t #(
     apb.monitor_clear();
   endtask
 
-  virtual protected task write (input addr_t addr, input data_t data);
-    string log = $sformatf("@%0dns apb write %x %x", $time, addr, data);
-    if (file == -1) $display(log); else $fdisplay(file, log);
+  virtual protected task report_write ();
+    wait (apb.monitor_cb.psel == 1'b1 && apb.monitor_cb.penable == 1'b1 &&
+          apb.monitor_cb.pwrite == 1'b1 && apb.monitor_cb.pready == 1'b1);
+
+    report($sformatf("apb write %x %x",
+      apb.monitor_cb.paddr,
+      apb.monitor_cb.pwdata
+    ));
+    @(apb.monitor_cb);
   endtask
 
-  virtual protected task read (input addr_t addr, input data_t data);
-    string log = $sformatf("@%0dns apb read %x %x", $time, addr, data);
-    if (file == -1) $display(log); else $fdisplay(file, log);
+  virtual protected task report_read ();
+    wait (apb.monitor_cb.psel == 1'b1 && apb.monitor_cb.penable == 1'b1 &&
+          apb.monitor_cb.pwrite == 1'b0 && apb.monitor_cb.pready == 1'b1);
+
+    report($sformatf("apb read %x %x",
+      apb.monitor_cb.paddr,
+      apb.monitor_cb.prdata
+    ));
+    @(apb.monitor_cb);
+  endtask
+
+  virtual protected task check_hold ();
+    typedef struct {
+      logic                   psel;
+      logic                   penable;
+      logic                   pwrite;
+      logic [ADDR_BITS - 1:0] paddr;
+      logic [DATA_BITS - 1:0] pwdata;
+      logic [DATA_BITS - 1:0] prdata;
+      logic                   pready;
+    } hold_t;
+
+    static hold_t hold = '{default: '0};
+
+    hold_t now = '{
+      psel   : apb.monitor_cb.psel,
+      penable: apb.monitor_cb.penable,
+      pwrite : apb.monitor_cb.pwrite,
+      paddr  : apb.monitor_cb.paddr,
+      pwdata : apb.monitor_cb.pwdata,
+      prdata : apb.monitor_cb.prdata,
+      pready : apb.monitor_cb.pready
+    };
+
+    if (hold.psel == 1'b1 && now.psel == 1'b0) begin
+      report($sformatf("apb check psel %x is changed before pready",
+        now.psel
+      ));
+    end
+
+    if (hold.psel == 1'b0) begin
+      if (now.penable == 1'b1)
+        report($sformatf("apb check penable %x is set first stage",
+          now.penable
+        ));
+    end
+    else begin
+      if (hold.penable == 1'b1 && now.penable == 1'b0)
+        report($sformatf("apb check penable %x is changed before pready",
+          now.penable
+        ));
+    end
+
+    if (hold.psel == 1'b1) begin
+      if (hold.paddr != now.paddr)
+        report($sformatf("apb check paddr %x is changed before pready",
+          now.paddr
+        ));
+      if (hold.pwrite != now.pwrite)
+        report($sformatf("apb check pwrite %0d is changed before pready",
+          now.pwrite
+        ));
+      if (now.pwrite == 1'b1 && hold.pwdata != now.pwdata)
+        report($sformatf("apb check pwdata %x is changed before pready",
+          now.pwdata
+        ));
+    end
+
+    if (now.psel == 1'b1 && now.penable == 1'b1 && now.pready == 1'b1)
+      hold <= '{default: '0};
+    else
+      hold <= now;
+
+    @(apb.monitor_cb);
+  endtask
+
+  virtual task report (input string text);
+    string log = $sformatf("@%0dns %s", $time, text);
+
+    if (file == -1)
+      $display(log);
+    else
+      $fdisplay(file, log);
   endtask
 
 endclass

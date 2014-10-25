@@ -83,26 +83,11 @@ class amba3_axi_slave_t #(
         axi.slave_reset();
         disable loop;
       end
-      forever begin
-        tx_t tx;
-        waddr(tx);
-      end
-      forever begin
-        tx_t tx;
-        wdata(tx);
-      end
-      forever begin
-        tx_t tx;
-        wresp(tx);
-      end
-      forever begin
-        tx_t tx;
-        raddr(tx);
-      end
-      forever begin
-        tx_t tx;
-        rdata(tx);
-      end
+      forever waddr();
+      forever wdata();
+      forever wresp();
+      forever raddr();
+      forever rdata();
     join_any
     disable fork;
   endtask
@@ -115,14 +100,15 @@ class amba3_axi_slave_t #(
     axi.slave_ticks(tick);
   endtask
 
-  virtual protected task waddr (output tx_t tx);
+  virtual protected task waddr ();
+    tx_t tx;
     ticks(random_delay());
     axi.slave_waddr(tx);
     waddr_q.put(tx);
   endtask
 
-  virtual protected task wdata (output tx_t tx);
-    tx_t rx;
+  virtual protected task wdata ();
+    tx_t tx, rx;
 
     if (PRE_WDATA == 0) begin
       wait_q(wdata_q, waddr_q);
@@ -163,8 +149,8 @@ class amba3_axi_slave_t #(
     end
   endtask
 
-  virtual protected task wresp (output tx_t tx);
-    tx_t rx;
+  virtual protected task wresp ();
+    tx_t tx, rx;
 
     if (PRE_WDATA == 0) begin
       wresp_q.get(tx);
@@ -200,13 +186,15 @@ class amba3_axi_slave_t #(
     end
   endtask
 
-  virtual protected task raddr (output tx_t tx);
+  virtual protected task raddr ();
+    tx_t tx;
     ticks(random_delay());
     axi.slave_raddr(tx);
     raddr_q.put(tx);
   endtask
 
-  virtual protected task rdata (output tx_t tx);
+  virtual protected task rdata ();
+    tx_t tx;
     raddr_q.get(tx);
     read(tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin

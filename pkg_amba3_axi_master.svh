@@ -73,18 +73,9 @@ class amba3_axi_master_t #(
         axi.master_reset();
         disable loop;
       end
-      forever begin
-        tx_t tx;
-        wdata(tx);
-      end
-      forever begin
-        tx_t tx;
-        wresp(tx);
-      end
-      forever begin
-        tx_t tx;
-        rdata(tx);
-      end
+      forever wdata();
+      forever wresp();
+      forever rdata();
     join_any
     disable fork;
   endtask
@@ -122,7 +113,8 @@ class amba3_axi_master_t #(
       wait (tx.done.triggered);
   endtask
 
-  virtual protected task wdata (output tx_t tx);
+  virtual protected task wdata ();
+    tx_t tx;
     waddr_q.get(tx);
     for (int i = 0; i < tx.addr.len + 1; i++) begin
       ticks(random_delay());
@@ -131,8 +123,8 @@ class amba3_axi_master_t #(
     wdata_q.put(tx);
   endtask
 
-  virtual protected task wresp (output tx_t tx);
-    tx_t rx;
+  virtual protected task wresp ();
+    tx_t tx, rx;
 
     wait_q(wresp_q, wdata_q);
     ticks(random_delay());
@@ -149,8 +141,8 @@ class amba3_axi_master_t #(
     end
   endtask
 
-  virtual protected task rdata (output tx_t tx);
-    tx_t rx;
+  virtual protected task rdata ();
+    tx_t tx, rx;
 
     wait_q(rdata_q, raddr_q);
     ticks(random_delay());
