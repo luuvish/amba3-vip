@@ -37,8 +37,20 @@ class amba3_apb_monitor_t #(
 
   typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).monitor apb_t;
 
+  typedef struct {
+    logic                   psel;
+    logic                   penable;
+    logic                   pwrite;
+    logic [ADDR_BITS - 1:0] paddr;
+    logic [DATA_BITS - 1:0] pwdata;
+    logic [DATA_BITS - 1:0] prdata;
+    logic                   pready;
+  } hold_t;
+
   protected apb_t apb;
   protected integer file;
+
+  protected hold_t hold;
 
   function new (input apb_t apb, string filename = "");
     this.apb = apb;
@@ -46,6 +58,7 @@ class amba3_apb_monitor_t #(
     if (filename != "") begin
       this.file = $fopen(filename, "w");
     end
+    this.hold = '{default: '0};
   endfunction
 
   virtual task start ();
@@ -97,18 +110,6 @@ class amba3_apb_monitor_t #(
   endtask
 
   virtual protected task check_hold ();
-    typedef struct {
-      logic                   psel;
-      logic                   penable;
-      logic                   pwrite;
-      logic [ADDR_BITS - 1:0] paddr;
-      logic [DATA_BITS - 1:0] pwdata;
-      logic [DATA_BITS - 1:0] prdata;
-      logic                   pready;
-    } hold_t;
-
-    static hold_t hold = '{default: '0};
-
     hold_t now = '{
       psel   : apb.monitor_cb.psel,
       penable: apb.monitor_cb.penable,
@@ -154,9 +155,9 @@ class amba3_apb_monitor_t #(
     end
 
     if (now.psel == 1'b1 && now.penable == 1'b1 && now.pready == 1'b1)
-      hold <= '{default: '0};
+      hold = '{default: '0};
     else
-      hold <= now;
+      hold = now;
 
     @(apb.monitor_cb);
   endtask
