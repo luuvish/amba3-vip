@@ -31,12 +31,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_slave_t #(
-  parameter integer TXID_BITS = 4,
-                    ADDR_BITS = 32,
-                    DATA_BITS = 32,
-                    MAX_DELAY = 10,
-                    MAX_QUEUE = 10,
-                    PRE_WDATA = 1
+  TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 32,
+  MAX_DELAY = 10, MAX_QUEUE = 10, PRE_WDATA = 1
 );
 
   localparam integer STRB_BITS = DATA_BITS / 8;

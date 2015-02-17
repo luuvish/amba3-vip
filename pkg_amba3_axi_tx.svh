@@ -30,11 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_axi_tx_t #(
-  parameter integer TXID_BITS = 4,
-                    ADDR_BITS = 32,
-                    DATA_BITS = 32
-);
+class amba3_axi_tx_t #(TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 32);
 
   localparam integer STRB_BITS = DATA_BITS / 8;
   localparam integer DATA_BASE = $clog2(DATA_BITS / 8);

@@ -30,11 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_apb_master_t #(
-  parameter integer ADDR_BITS = 32,
-                    DATA_BITS = 32,
-                    MAX_DELAY = 10
-);
+class amba3_apb_master_t #(ADDR_BITS = 32, DATA_BITS = 32, MAX_DELAY = 10);
 
   typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).master apb_t;
   typedef logic [ADDR_BITS - 1:0] addr_t;

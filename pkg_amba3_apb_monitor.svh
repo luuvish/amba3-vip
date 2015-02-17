@@ -30,10 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_apb_monitor_t #(
-  parameter integer ADDR_BITS = 32,
-                    DATA_BITS = 32
-);
+class amba3_apb_monitor_t #(ADDR_BITS = 32, DATA_BITS = 32);
 
   typedef virtual amba3_apb_if #(ADDR_BITS, DATA_BITS).monitor apb_t;
 

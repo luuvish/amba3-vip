@@ -30,11 +30,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-class amba3_apb_slave_t #(
-  parameter integer ADDR_BITS = 32,
-                    DATA_BITS = 32,
-                    MAX_DELAY = 10
-);
+class amba3_apb_slave_t #(ADDR_BITS = 32, DATA_BITS = 32, MAX_DELAY = 10);
 
   localparam integer DATA_BASE = $clog2(DATA_BITS / 8);
 

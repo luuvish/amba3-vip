@@ -30,10 +30,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-interface amba3_apb_if #(
-  parameter integer ADDR_BITS = 32,
-                    DATA_BITS = 32
-) (input logic pclk, input logic preset_n);
+interface amba3_apb_if #(ADDR_BITS = 32, DATA_BITS = 32) (
+  input logic pclk, preset_n
+);
 
   import pkg_amba3::*;
 

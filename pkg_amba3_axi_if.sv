@@ -30,11 +30,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ==============================================================================*/
 
-interface amba3_axi_if #(
-  parameter integer TXID_BITS = 4,
-                    ADDR_BITS = 32,
-                    DATA_BITS = 32
-) (input logic aclk, input logic areset_n);
+interface amba3_axi_if #(TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 32) (
+  input logic aclk, areset_n
+);
 
   import pkg_amba3::*;
 

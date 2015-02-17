@@ -31,10 +31,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_tx_fixed_t #(
-  parameter integer TXID_BITS = 4,
-                    ADDR_BITS = 32,
-                    DATA_BITS = 32,
-                    BEAT_BITS = 32
+  TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 32, BEAT_BITS = 32
 )
 extends amba3_axi_tx_t #(TXID_BITS, ADDR_BITS, DATA_BITS);
 

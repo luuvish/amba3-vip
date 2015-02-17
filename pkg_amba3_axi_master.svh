@@ -31,11 +31,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ==============================================================================*/
 
 class amba3_axi_master_t #(
-  parameter integer TXID_BITS = 4,
-                    ADDR_BITS = 32,
-                    DATA_BITS = 32,
-                    MAX_DELAY = 10,
-                    MAX_QUEUE = 10
+  TXID_BITS = 4, ADDR_BITS = 32, DATA_BITS = 32,
+  MAX_DELAY = 10, MAX_QUEUE = 10
 );
 
   typedef virtual amba3_axi_if #(TXID_BITS, ADDR_BITS, DATA_BITS).master axi_t;
