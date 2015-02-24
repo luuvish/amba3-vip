@@ -66,6 +66,7 @@ package pkg_amba3;
   `include "pkg_amba3_axi_tx_wrap.svh"
   `include "pkg_amba3_axi_master.svh"
   `include "pkg_amba3_axi_slave.svh"
+  `include "pkg_amba3_axi_probe.svh"
   `include "pkg_amba3_axi_monitor.svh"
 
 endpackage
